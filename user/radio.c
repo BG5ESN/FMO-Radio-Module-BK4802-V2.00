@@ -1,0 +1,245 @@
+/*
+ *Radio driver
+ *Author:xifengzui AKA BG5ESN
+ *Date:2024-11-8
+ */
+
+#include "main.h"
+#include "radio.h"
+#include "led.h"
+#include "BK4802.h"
+#include "antennaPath.h"
+#include "components.h"
+#include "SHARECom.h"
+#include "speaker.h"
+#include "jumper.h"
+#undef TAG
+#define TAG "RADIO"
+
+static GPIO_InitTypeDef GPIO_InitStruct;
+static float txFreq = 145.100;
+static float rxFreq = 145.100;
+
+void radioInit(void)
+{
+    BK4802Init();
+
+    // 初始化通讯脚
+    //  PTT 发射脚 PB6，读取到高电平时，进行发射，默认下拉，避免干扰
+    GPIO_InitStruct.Pin = GPIO_PIN_6;
+    GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+    GPIO_InitStruct.Pull = GPIO_PULLDOWN;
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
+    HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
+    // 音频对外输出脚 PB7，输出，高电平为有正在产生的音频信号，低电平为无音频信号
+    GPIO_InitStruct.Pin = GPIO_PIN_7;
+    GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
+    HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_7, GPIO_PIN_RESET);
+}
+
+xBool radioGetPTT(void)
+{
+    return HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_6) ? xTrue : xFalse;
+}
+
+void radioSetAudioOutput(xBool enable)
+{
+    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_7, enable ? GPIO_PIN_SET : GPIO_PIN_RESET);
+}
+
+// 0~10
+void radioSetAudioOutputLevel(uint8_t level)
+{
+    BK4802SetVolLevel(level);
+}
+
+// 0~10
+uint8_t radioGetAudioOutputLevel(void)
+{
+    return BK4802GetVolLevel();
+}
+
+static uint8_t micLevel = 0;
+void radioSetMicInputLevel(uint8_t level)
+{
+    // not implemented,current not support.
+    micLevel = level;
+    return;
+}
+uint8_t radioGetMicInputLevel(void)
+{
+    // not implemented,current not support.
+    return micLevel; // fake value
+}
+
+// 0~10
+void radioSetSQLLevel(uint8_t level)
+{
+    BK4802SetRSSIThre(level); // 0~9
+}
+
+// 0~10
+uint8_t radioGetSQLLevel(void)
+{
+    return BK4802GetRSSIThre(); // 0~9
+}
+
+void radioSetTxFreq(float freq)
+{
+    txFreq = freq;
+    if (BK4802IsTx())
+    {
+        BK4802Flush(freq);
+    }
+}
+
+void radioSetRxFreq(float freq)
+{
+    rxFreq = freq;
+    if (!BK4802IsTx())
+    {
+        BK4802Flush(freq);
+    }
+}
+uint8_t radioGetSMeter(void)
+{
+    // 降低SMeter的读取频率,改为每500ms读取一次
+    static uint32_t smeterPeriod = 0;
+    // 读取SMeter
+    static uint8_t smeter = 0;
+    if (millis() < smeterPeriod)
+    {
+        return smeter;
+    }
+    smeterPeriod = millis() + 500; // 500ms
+
+    smeter = BK4802GetSMeter();
+    return smeter;
+}
+
+void radioSetFreqTune(int8_t tune)
+{
+    // not implemented,current not support.
+    return;
+}
+
+void timelyResetBK4802(void)
+{
+    static uint32_t resetBK4802Period = 0;
+    if (millis() < resetBK4802Period)
+    {
+        return;
+    }
+    resetBK4802Period = millis() + (1000 * 3600 * 6); //  每6小时重新设置BK4802 避免奇怪的断开问题
+    BK4802Reset(rxFreq);
+}
+
+void radioTask(void)
+{
+
+    static uint8_t lastPTT = 0xFF;
+    static uint8_t lastVout = 0xFF;
+    static uint8_t lastEn = 0xFF;
+    uint8_t vout = 0;
+    uint8_t ptt = 0;
+    uint8_t en = 0;
+
+    // 读取PTT状态
+    ptt = radioGetPTT();
+    if (ptt != lastPTT)
+    {
+        lastPTT = ptt;
+        if (ptt)
+        {
+            // log_d("PTT ON:%f", txFreq);
+            if (getJumperMode() == E_JUMPER_MODE_RX_ONLY)
+            {
+                // DO Nothing
+                log_d("PTT ON RX_ONLY");
+                LED_BLINK(2000, 500);
+            }
+            else if (getJumperMode() == E_JUMPER_MODE_ATT_ONLY)
+            {
+                antennaPathCtrl(ANTENNA_PATH_ATTENUATOR); // 正常一直在衰减器挡位
+                log_d("PTT ON ATT_ONLY");
+                LED_BLINK(1000, 500);
+                HAL_Delay(100); // 等待衰减器稳定
+                BK4802Tx(txFreq);
+                LED_ON();
+            }
+            else if (getJumperMode() == E_JUMPER_MODE_NORMAL)
+            {
+                log_d("PTT ON");
+                antennaPathCtrl(ANTENNA_PATH_FILTER); // UHF
+                HAL_Delay(100);                       // 等待衰减器稳定
+                BK4802Tx(txFreq);
+                LED_ON();
+            }
+            speakerPlay(xTrue);
+        }
+        else
+        {
+            // log_d("PTT OFF:%f", rxFreq);
+            antennaPathCtrl(ANTENNA_PATH_ATTENUATOR); // 打开衰减器
+            HAL_Delay(100);                           // 等待衰减器稳定
+            BK4802Rx(rxFreq);
+            speakerPlay(xFalse);
+            LED_BLINK_COUNT(200, 200, getJumperMode() + 1, 3000);
+        }
+    }
+
+    if (!ptt) // 发射时，不进行接收信号判定
+    {
+        // 判定RSSI和SNR是否满足条件,并触发音频发送
+        // TODO: 判定合适的值
+        uint8_t rxExist = BK4802IsRx();
+
+        if (BK4802IsError())
+        {
+            BK4802Reset(rxFreq);
+        }
+        else
+        {
+            timelyResetBK4802();
+        }
+
+        if (rxExist)
+        {
+            vout = 1;
+        }
+        else
+        {
+            vout = 0;
+        }
+
+        if (vout != lastVout)
+        {
+            lastVout = vout;
+            if (vout)
+            {
+                // log_i("Audio ON");
+                // log_i("RSSI:%d,SNR:%d", rssi, snr);
+                radioSetAudioOutput(xTrue);
+                LED_BLINK(50, 50);
+            }
+            else
+            {
+                // log_i("Audio OFF");
+                radioSetAudioOutput(xFalse);
+                LED_BLINK_COUNT(200, 200, getJumperMode() + 1, 3000);
+            }
+        }
+    }
+}
+void radioSetPower(uint8_t level)
+{
+    if (level > 2)
+    {
+        level = 2; // 限制最大值为2
+    }
+    BK4802SetPower(level);
+}
