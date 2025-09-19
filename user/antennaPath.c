@@ -6,7 +6,7 @@ void antennaPathInit(void)
 {
     // PB0: H PB1 L FILTER 
     // PB0: L PB1 H ATTENUATOR
-    __HAL_RCC_GPIOA_CLK_ENABLE();
+    __HAL_RCC_GPIOB_CLK_ENABLE();
     GPIO_InitStruct.Pin = GPIO_PIN_0 | GPIO_PIN_1;
     GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
     GPIO_InitStruct.Pull = GPIO_NOPULL;

@@ -23,7 +23,7 @@ static uint8_t thresholdIdx = 0;
 static uint8_t softRSSIThre = 80; // default
 // 范围60~127 共10档,均匀分布
 // 0~10档                           0   1   2    3    4    5    6    7    8    9   10
-static const uint8_t threTable[] = {0, 64, 70, 76, 82, 88, 95, 101, 107, 113, 119, 125};
+static const uint8_t threTable[] = {0, 64, 70, 76, 82, 89, 97, 104, 112, 118, 125};
 #define THRE_SIZE (sizeof(threTable) / sizeof(threTable[0]))
 static xBool isTx = false;
 typedef struct
