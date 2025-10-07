@@ -41,6 +41,7 @@ void radioSetSQLLevel(uint8_t level);
 void radioSetPower(uint8_t level); // 0,1,2分为三档 0最低, 2最高
 void radioSetTxFreq(float freq);
 void radioSetRxFreq(float freq);
-void radioSetFreqTune(int8_t tune);
+void radioSetFreqTune(int32_t tuneHz); // 设置频率偏移(Hz)
+void radioApplyFreqTune(void);         // 重新应用频偏到当前收/发频率
 uint8_t radioGetSMeter(void);
 #endif

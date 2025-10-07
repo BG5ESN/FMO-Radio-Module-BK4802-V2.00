@@ -22,10 +22,14 @@ static TIM_OC_InitTypeDef sConfig;
 static uint8_t thresholdIdx = 0;
 static uint8_t softRSSIThre = 80; // default
 // 范围60~127 共10档,均匀分布
-// 0~10档                           0   1   2    3    4    5    6    7    8    9   10
+// 0~10档                           0   1   2  3   4   5    6    7   8    9   10 
 static const uint8_t threTable[] = {0, 64, 70, 76, 82, 89, 97, 104, 112, 118, 125};
 #define THRE_SIZE (sizeof(threTable) / sizeof(threTable[0]))
 static xBool isTx = false;
+// 频率偏移(单位: MHz)。用于补偿晶振/射频频率误差。正值=>提高实际发射/接收本振频率
+static float g_freqOffsetMHz = 0.0f;
+// 记录最近一次用户层（未带偏移）请求的频率(MHz)，供按 PPM 方式设置偏移时参考
+static float g_lastUserFreqMHz = 0.0f;
 typedef struct
 {
     uint8_t addr;
@@ -398,14 +402,16 @@ void BK4802Tx(float freq)
     freqRegs[2].addr = 2;
     float nDiv;
     uint32_t txValue;
+    float adjFreq = freq + g_freqOffsetMHz; // 应用偏移后的目标射频频率
 
-    if (nDivCacl(freq, &nDiv, &freqRegs[2].value) == false)
+    g_lastUserFreqMHz = freq; // 记录原始用户频率
+
+    if (nDivCacl(adjFreq, &nDiv, &freqRegs[2].value) == false)
     {
-        log_i("freq out of range");
+        log_w("freq(含偏移)超出范围: req=%.6f MHz, offset=%.6f MHz, adj=%.6f MHz", freq, g_freqOffsetMHz, adjFreq);
         return;
     }
-
-    txValue = (uint32_t)(freq * nDiv * TWO24 / CRYSTAL);
+    txValue = (uint32_t)(adjFreq * nDiv * TWO24 / CRYSTAL);
     freqRegs[0].value = (uint16_t)((txValue >> 16) & 0xFFFF);
     freqRegs[1].value = (uint16_t)(txValue & 0xFFFF);
     HAL_GPIO_WritePin(GPIOA, GPIO_PIN_8, GPIO_PIN_SET); // TX
@@ -429,7 +435,8 @@ void BK4802Tx(float freq)
     BK4802WriteReg(freqRegs[2].addr, freqRegs[2].value);
     BK4802WriteReg(freqRegs[0].addr, freqRegs[0].value);
     BK4802WriteReg(freqRegs[1].addr, freqRegs[1].value);
-    log_i("TX freq:%.4f, nDiv:%.1f,reg2:%04x,reg0:%04x,reg1:%04x", freq, nDiv, freqRegs[2].value, freqRegs[0].value, freqRegs[1].value);
+    log_i("TX req:%.4f MHz off:%.6f MHz adj:%.6f MHz nDiv:%.1f r2:%04x r0:%04x r1:%04x", 
+          freq, g_freqOffsetMHz, adjFreq, nDiv, freqRegs[2].value, freqRegs[0].value, freqRegs[1].value);
 }
 
 void BK4802SetVolLevel(uint8_t level)
@@ -450,13 +457,17 @@ void BK4802Rx(float freq)
     freqRegs[2].addr = 2;
     float nDiv;
     uint32_t rx;
+    float adjFreq = freq + g_freqOffsetMHz; // 应用偏移后的目标射频频率
 
-    if (nDivCacl(freq, &nDiv, &freqRegs[2].value) == false)
+    g_lastUserFreqMHz = freq; // 记录原始用户频率
+
+    if (nDivCacl(adjFreq, &nDiv, &freqRegs[2].value) == false)
     {
-        log_i("freq out of range");
+        log_w("freq(含偏移)超出范围: req=%.6f MHz, offset=%.6f MHz, adj=%.6f MHz", freq, g_freqOffsetMHz, adjFreq);
         return;
     }
-    rx = (uint32_t)(((freq - IF * 1.000) * nDiv * TWO24) / CRYSTAL);
+    // 接收路径：本振 = 期望RF - IF，因此加偏移后本振应 = (adjFreq - IF)
+    rx = (uint32_t)(((adjFreq - IF * 1.000f) * nDiv * TWO24) / CRYSTAL);
 
     freqRegs[0].value = (uint16_t)((rx >> 16) & 0xFFFF);
     freqRegs[1].value = (uint16_t)(rx & 0xFFFF);
@@ -483,7 +494,8 @@ void BK4802Rx(float freq)
     BK4802WriteReg(freqRegs[2].addr, freqRegs[2].value);
     BK4802WriteReg(freqRegs[0].addr, freqRegs[0].value);
     BK4802WriteReg(freqRegs[1].addr, freqRegs[1].value);
-    log_i("RX freq:%.4f, nDiv:%.1f,reg2:%04x,reg0:%04x,reg1:%04x", freq, nDiv, freqRegs[2].value, freqRegs[0].value, freqRegs[1].value);
+    log_i("RX req:%.4f MHz off:%.6f MHz adj:%.6f MHz nDiv:%.1f r2:%04x r0:%04x r1:%04x", 
+          freq, g_freqOffsetMHz, adjFreq, nDiv, freqRegs[2].value, freqRegs[0].value, freqRegs[1].value);
 }
 
 void BK4802Init(void)
@@ -717,4 +729,58 @@ void BK4802SetPower(uint8_t level)
     log_d("setting reg 8 to 0x%04X", readVal);
     BK4802WriteReg(8, readVal);
     BK4802SetDynamicCfg(8, readVal);
+}
+
+/* ================= 频率偏移校准接口 =================
+ * 设计目的：
+ *   廉价晶振/模块存在系统频偏，允许人工或上层协议写入一个频率偏移，
+ *   统一作用于发射与接收本振计算。
+ * 单位与符号：
+ *   Set 函数以 Hz/PPM 设定；内部统一保存为 MHz。
+ *   正值 => 实际发射 / 接收 频率升高。
+ */
+
+// 直接以 Hz 设定绝对偏移
+void BK4802SetFreqOffsetHz(float offsetHz)
+{
+    g_freqOffsetMHz = offsetHz / 1e6f;
+    log_i("Set Freq Offset: %.2f Hz (内部=%.6f MHz)", offsetHz, g_freqOffsetMHz);
+}
+
+// 以 PPM 设定，相对于最近一次用户请求频率（未含偏移）
+void BK4802SetFreqOffsetPPM(float ppm)
+{
+    // ppm = 1e-6，相对频率误差
+    float offsetMHz = g_lastUserFreqMHz * (ppm * 1e-6f);
+    g_freqOffsetMHz = offsetMHz;
+    log_i("Set Freq Offset by PPM: ppm=%.2f -> off=%.6f MHz (lastUser=%.6f MHz)", ppm, g_freqOffsetMHz, g_lastUserFreqMHz);
+}
+
+float BK4802GetFreqOffsetHz(void)
+{
+    return g_freqOffsetMHz * 1e6f;
+}
+
+float BK4802GetFreqOffsetMHz(void)
+{
+    return g_freqOffsetMHz;
+}
+
+// 可选：对输入频率进行步进量化（例如 12.5 kHz / 5 kHz 等）。传入步进(Hz)
+float BK4802QuantizeFreq(float freqMHz, float stepHz)
+{
+    if (stepHz <= 0.0f)
+    {
+        return freqMHz; // 不量化
+    }
+    float stepMHz = stepHz / 1e6f;
+    float q = (float)((int)((freqMHz / stepMHz) + 0.5f)) * stepMHz;
+    return q;
+}
+
+// 便捷刷新：带量化 + 偏移。若需要量化再调用本函数
+void BK4802FlushWithStep(float reqFreqMHz, float stepHz)
+{
+    float qFreq = BK4802QuantizeFreq(reqFreqMHz, stepHz);
+    BK4802Flush(qFreq);
 }

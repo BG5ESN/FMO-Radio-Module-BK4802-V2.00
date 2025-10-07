@@ -16,8 +16,8 @@
 // at com init
 SHARECom COM =
     {
-        .bandCap = E_AT_BAND_CAP_144_146 | E_AT_BAND_CAP_430_440,
-        .freqTune = 0,
+        .bandCap = E_AT_BAND_CAP_144_148 | E_AT_BAND_CAP_430_440,
+  .freqTune = 0, // 频率偏移Hz
         .rCTCSS = 0,
         .tCTCSS = 0,
         .rxVol = 5,
@@ -31,7 +31,7 @@ SHARECom COM =
 // 同步任务，将AT的COM中产生的各种指令，同步至其他模块
 void syncInit(void)
 {
-  radioSetFreqTune(COM.freqTune);      // 微调频率，用于校准中心频点，如果有需要的话，可以在AT指令中调整
+  radioSetFreqTune(COM.freqTune);      // 设置频率偏移(Hz) 微调中心频点
   radioSetAudioOutputLevel(COM.txVol); // 设置音频输出电平
   radioSetMicInputLevel(COM.rxVol);    // 设置麦克风输入电平
   radioSetTxFreq(COM.txFreq);          // 设置发射频率
@@ -92,8 +92,8 @@ void syncTask(void)
   }
   else if (atCmd == E_AT_CMD_FREQTUNE)
   {
-    log_d("setting freq tune");
-    radioSetFreqTune(COM.freqTune); // 微调频率，用于校准中心频点，如果有需要的话，可以在AT指令中调整
+  log_d("setting freq tune(offset Hz) %ld", (long)COM.freqTune);
+  radioSetFreqTune(COM.freqTune); // 设置频率偏移(Hz)
   }
 }
 

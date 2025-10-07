@@ -13,7 +13,7 @@ typedef struct
     uint8_t txVol;   // TX volume 0~10 0 is off
     float tCTCSS;    // TX CTCSS
     float rCTCSS;    // RX CTCSS
-    int8_t freqTune; // freq tune -100~100
+    int32_t freqTune; // frequency offset in Hz (可正可负)，用于晶振/本振校准
     uint8_t txPwr;   // 0 low 1 mid 2 high
     uint8_t smeter;  // S meter level 1~9
 } SHARECom;

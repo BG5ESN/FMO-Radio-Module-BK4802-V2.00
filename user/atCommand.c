@@ -57,6 +57,9 @@
 // freqTune
 #define AT_CMD_FREQTUNE "FREQTUNE"
 
+// NOTE: freqTune 类型已在 SHARECom.h 中调整为 int32_t 频率偏移(Hz)
+// 频率偏移(Hz)的范围是 -100~100
+
 // level LOW MID HIGH
 #define AT_CMD_TXPWR "TXPWR"
 #define AT_CMD_TXPWR_LIST_0 "LOW"
@@ -254,10 +257,10 @@ xBool ATCmdParse(ATCmdArgs *outArgs)
                 return xTrue;
             }
         }
-        else if (xStringnCompare(&atCmdProcRaw[startIdx],AT_CMD_SMETER,xStringLen(AT_CMD_SMETER)) ==xTrue)
+        else if (xStringnCompare(&atCmdProcRaw[startIdx], AT_CMD_SMETER, xStringLen(AT_CMD_SMETER)) == xTrue)
         {
             startIdx = startIdx + xStringLen(AT_CMD_SMETER);
-            if(atCmdProcRaw[startIdx]== '?')
+            if (atCmdProcRaw[startIdx] == '?')
             {
                 outArgs->cmd = E_AT_CMD_SMETER;
                 outArgs->result = E_AT_RESULT_OK;
@@ -899,7 +902,7 @@ xBool ATCmdParse(ATCmdArgs *outArgs)
                     return xTrue;
                 }
 
-                // parse the string to float
+                // parse the string to int32 (Hz 频偏)
                 if (xStringnToInt32(sepPtr[0], sepLen[0], &outArgs->args[0].raw.intValue) == xFalse)
                 {
                     outArgs->cmd = E_AT_CMD_NONE;
@@ -908,7 +911,16 @@ xBool ATCmdParse(ATCmdArgs *outArgs)
                     return xTrue;
                 }
 
-                log_d("set freq tune:%.5f", outArgs->args[0].raw.floatValue);
+                // 简单限制范围 ±50000 Hz
+                if (outArgs->args[0].raw.intValue > 50000 || outArgs->args[0].raw.intValue < -50000)
+                {
+                    outArgs->cmd = E_AT_CMD_NONE;
+                    outArgs->result = E_AT_RESULT_FAIL;
+                    log_w("freq tune out of range ±50000 Hz");
+                    return xTrue;
+                }
+
+                log_d("set freq tune(offset Hz):%d", outArgs->args[0].raw.intValue);
                 outArgs->cmd = E_AT_CMD_FREQTUNE;
                 outArgs->result = E_AT_RESULT_SUCC;
                 outArgs->type = E_AT_CMD_TYPE_SET;
@@ -975,7 +987,7 @@ xBool ATCmdArgsGetProc(ATCmdArgs *argsToBeProc, SHARECom *base)
         argsToBeProc->args[0].raw.uintValue = base->bandCap;
         return xTrue;
     }
-    else if(argsToBeProc->cmd == E_AT_CMD_SMETER)
+    else if (argsToBeProc->cmd == E_AT_CMD_SMETER)
     {
         log_d("get S meter level");
         argsToBeProc->argNum = 1;
@@ -1172,7 +1184,7 @@ xBool ATCmdArgsSetProc(ATCmdArgs *argsToBeProc, SHARECom *base)
     }
     else if (argsToBeProc->cmd == E_AT_CMD_FREQTUNE)
     {
-        base->freqTune = (int8_t)argsToBeProc->args[0].raw.intValue;
+        base->freqTune = argsToBeProc->args[0].raw.intValue; // 频偏Hz
         fetchPut(E_AT_CMD_FREQTUNE);
         return xTrue;
     }
@@ -1346,7 +1358,7 @@ void ATCmdHandler(SHARECom *com)
         return;
     }
     log_d("recvLen:%d", recvLen);
-    
+
     // step1: put the received data into the ring buffer and check for end tags
     for (endTagIndex = 0; endTagIndex < recvLen; endTagIndex++)
     {
@@ -1385,7 +1397,7 @@ void ATCmdHandler(SHARECom *com)
 
     // assemble the command,include(1)the previous data in the ring buffer (2)the current data of recvBuf
     storeLen = xRingBufGet(&serialRingHandler, (unsigned char *)atCmdProcRaw, AT_CMD_BUF_LEN);
-    
+
     // put the current data of recvBuf into the command buffer (only printable chars before end tag)
     for (int j = 0; j < endTagIndex; j++)
     {
@@ -1394,10 +1406,10 @@ void ATCmdHandler(SHARECom *com)
             atCmdProcRaw[storeLen++] = recvBuf[j];
         }
     }
-    
+
     // 确保字符串结束
     atCmdProcRaw[storeLen] = '\0';
-    
+
     log_d("found command:%s", atCmdProcRaw);
 
     // put the rest data back to the ring buffer (skip the end tag)
@@ -1421,13 +1433,13 @@ void ATCmdHandler(SHARECom *com)
             }
         }
     }
-    
+
     // 如果命令为空，直接返回
     if (storeLen == 0)
     {
         return;
     }
-    
+
     // step2: parse the command
     if (ATCmdParse(&recvCmdArgs) == xFalse)
     {

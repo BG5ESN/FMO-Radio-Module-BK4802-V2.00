@@ -29,4 +29,12 @@ xBool BK4802IsError(void);
 void BK4802Reset(float freq);
 void BK4802DebugTask(void);
 uint8_t BK4802GetSMeter(void); // 量化RSSI,返回1~9
+
+// 频率偏移校准接口
+void BK4802SetFreqOffsetHz(float offsetHz);      // 直接设置绝对偏移(Hz)
+void BK4802SetFreqOffsetPPM(float ppm);          // 以 PPM 设置(相对最近一次调用的原始频率)
+float BK4802GetFreqOffsetHz(void);               // 获取当前偏移(Hz)
+float BK4802GetFreqOffsetMHz(void);              // 获取当前偏移(MHz)
+float BK4802QuantizeFreq(float freqMHz, float stepHz); // 辅助量化
+void BK4802FlushWithStep(float reqFreqMHz, float stepHz); // 刷新时应用量化
 #endif

@@ -17,8 +17,9 @@
 #define TAG "RADIO"
 
 static GPIO_InitTypeDef GPIO_InitStruct;
-static float txFreq = 145.100;
-static float rxFreq = 145.100;
+static float txFreq = 145.100; // MHz
+static float rxFreq = 145.100; // MHz
+static int32_t freqOffsetHz = 0; // 全局频偏(Hz)
 
 void radioInit(void)
 {
@@ -121,10 +122,30 @@ uint8_t radioGetSMeter(void)
     return smeter;
 }
 
-void radioSetFreqTune(int8_t tune)
+void radioApplyFreqTune(void)
 {
-    // not implemented,current not support.
-    return;
+    // 直接调用 BK4802 偏移接口
+    BK4802SetFreqOffsetHz((float)freqOffsetHz);
+    // 重新刷新当前状态
+    if (BK4802IsTx())
+    {
+        BK4802Flush(txFreq);
+    }
+    else
+    {
+        BK4802Flush(rxFreq);
+    }
+}
+
+void radioSetFreqTune(int32_t tuneHz)
+{
+    // 限制一个合理范围，防止误操作 (例如 ±50 kHz)
+    if (tuneHz > 50000)
+        tuneHz = 50000;
+    else if (tuneHz < -50000)
+        tuneHz = -50000;
+    freqOffsetHz = tuneHz;
+    radioApplyFreqTune();
 }
 
 void timelyResetBK4802(void)
