@@ -22,7 +22,7 @@ static TIM_OC_InitTypeDef sConfig;
 static uint8_t thresholdIdx = 0;
 static uint8_t softRSSIThre = 80; // default
 // 范围60~127 共10档,均匀分布
-// 0~10档                           0   1   2  3   4   5    6    7   8    9   10 
+// 0~10档                           0   1   2  3   4   5    6    7   8    9   10
 static const uint8_t threTable[] = {0, 64, 70, 76, 82, 89, 97, 104, 112, 118, 125};
 #define THRE_SIZE (sizeof(threTable) / sizeof(threTable[0]))
 static xBool isTx = false;
@@ -124,7 +124,7 @@ const static BK4802Reg rxConfig[] = {
                  // B11:1-关闭发射前端; B10:1-关闭发射拼音; B09:1-关闭采样ADC
     {5, 0x0C04}, // 锁相环相关设置，建议用默认值
     {6, 0xf140}, // 锁相环相关设置，建议用默认值
-    {7, 0xed00}, // B10：触发锁相环校准，上升沿有效
+    //{7, 0xEd00}, // B10：触发锁相环校准，上升沿有效
     //{8, 0x1700},  // 锁相环相关设置，建议用默认值 dynamicConfig,由动态寄存器控制函数控制
     {9, 0xe0e0},  // 锁相环相关设置
     {10, 0x8543}, // B15~B10：微调晶体振荡器频率; B07~B06：ADC稳压器输出电压
@@ -161,7 +161,7 @@ const static BK4802Reg txConfig[] =
         {4, 0x7C00},
         {5, 0x0004},
         {6, 0xf140}, // 锁相环相关设置，建议用默认值
-        {7, 0xed00}, // B10：触发锁相环校准，上升沿有效
+        //{7, 0xEd00}, // B10：触发锁相环校准，上升沿有效
         //{8, 0x1700},  // 锁相环相关设置，建议用默认值 dynamicConfig,由动态寄存器控制函数控制
         {9, 0xe0e0},  // 锁相环相关设置
         {10, 0x8543}, // B15~B10：微调晶体振荡器频率; B07~B06：ADC稳压器输出电压
@@ -248,6 +248,7 @@ const static BK4802Reg txConfig[] =
 
 static BK4802Reg dynamicConfig[] =
     {
+        {7, 0xED00}, // 15~13 IF Gain
         {8, 0x17E0}};
 
 void BK4802SetRSSIThre(uint8_t thre)
@@ -435,7 +436,7 @@ void BK4802Tx(float freq)
     BK4802WriteReg(freqRegs[2].addr, freqRegs[2].value);
     BK4802WriteReg(freqRegs[0].addr, freqRegs[0].value);
     BK4802WriteReg(freqRegs[1].addr, freqRegs[1].value);
-    log_i("TX req:%.4f MHz off:%.6f MHz adj:%.6f MHz nDiv:%.1f r2:%04x r0:%04x r1:%04x", 
+    log_i("TX req:%.4f MHz off:%.6f MHz adj:%.6f MHz nDiv:%.1f r2:%04x r0:%04x r1:%04x",
           freq, g_freqOffsetMHz, adjFreq, nDiv, freqRegs[2].value, freqRegs[0].value, freqRegs[1].value);
 }
 
@@ -494,7 +495,7 @@ void BK4802Rx(float freq)
     BK4802WriteReg(freqRegs[2].addr, freqRegs[2].value);
     BK4802WriteReg(freqRegs[0].addr, freqRegs[0].value);
     BK4802WriteReg(freqRegs[1].addr, freqRegs[1].value);
-    log_i("RX req:%.4f MHz off:%.6f MHz adj:%.6f MHz nDiv:%.1f r2:%04x r0:%04x r1:%04x", 
+    log_i("RX req:%.4f MHz off:%.6f MHz adj:%.6f MHz nDiv:%.1f r2:%04x r0:%04x r1:%04x",
           freq, g_freqOffsetMHz, adjFreq, nDiv, freqRegs[2].value, freqRegs[0].value, freqRegs[1].value);
 }
 
@@ -621,7 +622,7 @@ uint8_t BK4802GetSMeter(void)
     //  125~127 9
     uint8_t rssi = BK4802RSSIRead();
     uint8_t smeter = 0;
-    if (rssi <= threTable[1])//64
+    if (rssi <= threTable[1]) // 64
     {
         smeter = 0;
     }
@@ -657,7 +658,7 @@ uint8_t BK4802GetSMeter(void)
     {
         smeter = 8;
     }
-    else if(rssi <= threTable[10])//125
+    else if (rssi <= threTable[10]) // 125
     {
         smeter = 9;
     }
@@ -783,4 +784,24 @@ void BK4802FlushWithStep(float reqFreqMHz, float stepHz)
 {
     float qFreq = BK4802QuantizeFreq(reqFreqMHz, stepHz);
     BK4802Flush(qFreq);
+}
+
+void BK4802IFGainLevel(uint8_t level)
+{
+    // IF Gain Level 0~7
+    uint16_t writeLevel = 0;
+    if (level > 7)
+    {
+        level = 7;
+    }
+    // 寄存器7的 15~13位设置,只读,默认值0xED00 (最大增益)
+    dynamicConfig[0].value &= ~(0x07 << 13); // 清除B15~B13位
+    dynamicConfig[0].value |= (level << 13);
+    writeLevel = dynamicConfig[0].value;
+    BK4802WriteReg(7, writeLevel);
+    log_d("setting IF Gain Level to %d, reg7=0x%04X", level, writeLevel);
+}
+uint8_t BK4802GetCurThre(void)
+{
+    return softRSSIThre;
 }

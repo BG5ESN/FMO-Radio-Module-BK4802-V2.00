@@ -17,9 +17,11 @@
 #define TAG "RADIO"
 
 static GPIO_InitTypeDef GPIO_InitStruct;
-static float txFreq = 145.100; // MHz
-static float rxFreq = 145.100; // MHz
+static float txFreq = 145.100;   // MHz
+static float rxFreq = 145.100;   // MHz
 static int32_t freqOffsetHz = 0; // 全局频偏(Hz)
+
+#define RSSI_OVERLOAD_THRE 125
 
 void radioInit(void)
 {
@@ -165,6 +167,7 @@ void radioTask(void)
     static uint8_t lastPTT = 0xFF;
     static uint8_t lastVout = 0xFF;
     static uint8_t lastEn = 0xFF;
+    static uint8_t lastGainLevel = 7; // IF增益等级,默认最大值
     uint8_t vout = 0;
     uint8_t ptt = 0;
     uint8_t en = 0;
@@ -218,7 +221,6 @@ void radioTask(void)
         // 判定RSSI和SNR是否满足条件,并触发音频发送
         // TODO: 判定合适的值
         uint8_t rxExist = BK4802IsRx();
-
         if (BK4802IsError())
         {
             BK4802Reset(rxFreq);
@@ -252,6 +254,43 @@ void radioTask(void)
                 // log_i("Audio OFF");
                 radioSetAudioOutput(xFalse);
                 LED_BLINK_COUNT(200, 200, getJumperMode() + 1, 3000);
+            }
+        }
+
+        // 自动增益控制逻辑
+        // 解释：如果在接收状态且RSSI达到最大值，则降低IF增益等级以降低过载提示，如果到0db的时候，还过载，这意味着是真正的超过了系统承受能力。
+        //  解释：如果在非接收状态且经过一定时间没有接收到信号，则逐步提升IF增益等级以提高灵敏度。
+        if (rxExist)
+        {
+            uint8_t rssi = 0;
+            rssi = BK4802RSSIRead();
+
+            if (rssi <= BK4802GetCurThre()) // 如果小于了当前的RSSI阈值,则提升增益
+            {
+                if (lastGainLevel < 7)
+                {
+                    lastGainLevel++;
+                    BK4802IFGainLevel(lastGainLevel);
+                    log_d("AGC: Increase Gain Level to %d", lastGainLevel);
+                }
+            }
+            else if (rssi > RSSI_OVERLOAD_THRE) // 最大增益值
+            {
+                if (lastGainLevel > 0)
+                {
+                    lastGainLevel--;
+                    BK4802IFGainLevel(lastGainLevel);
+                    log_d("AGC: Decrease Gain Level to %d", lastGainLevel);
+                }
+            }
+        }
+        else
+        {
+            if (lastGainLevel != 7)
+            {
+                lastGainLevel = 7; // 直接提升到最大值
+                BK4802IFGainLevel(lastGainLevel);
+                log_d("AGC: Reset Gain Level to %d", lastGainLevel);
             }
         }
     }

@@ -120,7 +120,7 @@ int main(void)
   SCH_Add_Task(radioTask, 0, 10);
   SCH_Add_Task(ledTask, 0, 10);
   SCH_Add_Task(syncTask, 0, 100);
-  SCH_Add_Task(BK4802DebugTask, 1000, 1000);
+  //SCH_Add_Task(BK4802DebugTask, 1000, 1000);
   while (1)
   {
     SCH_Dispatch_Tasks();
