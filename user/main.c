@@ -26,7 +26,8 @@ SHARECom COM =
         .txFreq = 145.100,
         .rxFreq = 145.100,
         .txPwr = TX_PWR_LOW,
-        .ver = VERSION};
+  .ver = VERSION,
+  .rfEnable = 1};
 
 // 同步任务，将AT的COM中产生的各种指令，同步至其他模块
 void syncInit(void)
@@ -43,6 +44,13 @@ void syncTask(void)
 {
   atCtrl(isEnableCom());         // 控制AT指令的开关，是否启用AT指令
   COM.smeter = radioGetSMeter(); // 获取信号强度
+  static uint32_t scheduleResetTime = 0; // 计划复位的时间戳 (millis)
+  if (scheduleResetTime != 0 && millis() > scheduleResetTime)
+  {
+    log_w("System resetting now (scheduled by AT+SYS=RESET)...");
+    HAL_Delay(50);
+    NVIC_SystemReset();
+  }
   // 指令设置
   ATCmd atCmd = FetchATCmd();
   // 更新COM的实时数据
@@ -94,6 +102,17 @@ void syncTask(void)
   {
   log_d("setting freq tune(offset Hz) %ld", (long)COM.freqTune);
   radioSetFreqTune(COM.freqTune); // 设置频率偏移(Hz)
+  }
+  else if (atCmd == E_AT_CMD_RF)
+  {
+    log_d("setting RF enable state %d", COM.rfEnable);
+    // 这里只是记录，实际发射控制在 radioTask 中判断 COM.rfEnable
+  }
+  else if (atCmd == E_AT_CMD_SYS)
+  {
+    // 仅支持 RESET: 已在解析阶段返回 SUCCESS 这里安排 1 秒后复位
+    log_w("AT requested system RESET, will reset after 1000ms");
+    scheduleResetTime = millis() + 1000;
   }
 }
 

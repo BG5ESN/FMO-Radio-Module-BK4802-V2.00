@@ -10,7 +10,7 @@
 #include "SHARECom.h"
 #include "radioConvert.h"
 #define VERSION "V1"        // protocol version : V1 DO NOT CHANGE, IT IS USED TO IDENTIFY THE PROTOCOL
-#define NAME "FMO-BP-V1.03" // max 16 char
+#define NAME "FMO-BP-V1.0.3" // max 16 char
 #define E_AT_BAND_CAP_144_148 0x01
 #define E_AT_BAND_CAP_430_440 0x02
 #define E_AT_BAND_CAP_50_54 0x04
@@ -46,6 +46,8 @@ typedef enum
     E_AT_CMD_TXPWR,
     E_AT_CMD_FREQTUNE,
     E_AT_CMD_SMETER,
+    E_AT_CMD_RF, // RF ENABLE / DISABLE
+    E_AT_CMD_SYS, // System operations e.g. RESET
     E_AT_CMD_MAX,
 } ATCmd;
 

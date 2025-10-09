@@ -13,6 +13,7 @@
 #include "SHARECom.h"
 #include "speaker.h"
 #include "jumper.h"
+#include "SHARECom.h"
 #undef TAG
 #define TAG "RADIO"
 
@@ -163,6 +164,7 @@ void timelyResetBK4802(void)
 
 void radioTask(void)
 {
+    extern SHARECom COM; // 使用全局共享结构体中的 rfEnable 状态
 
     static uint8_t lastPTT = 0xFF;
     static uint8_t lastVout = 0xFF;
@@ -177,23 +179,31 @@ void radioTask(void)
     if (ptt != lastPTT)
     {
         lastPTT = ptt;
-        if (ptt)
+
+        if (ptt) // 二次判断，可能被上面禁用
         {
-            // log_d("PTT ON:%f", txFreq);
+
             if (getJumperMode() == E_JUMPER_MODE_RX_ONLY)
             {
                 // DO Nothing
                 log_d("PTT ON RX_ONLY");
-                LED_BLINK(2000, 500);
+                LED_BLINK(100, 3000);
+            }
+            else if (COM.rfEnable == 0)
+            {
+                log_w("PTT ignored: RF DISABLED via AT+RF");
+                LED_BLINK(100, 1500); // 慢闪表示被禁止
+                ptt = 0;             // 强制视为未按下，后续流程按接收处理
+                lastPTT = 0;         // 更新状态
             }
             else if (getJumperMode() == E_JUMPER_MODE_ATT_ONLY)
             {
                 antennaPathCtrl(ANTENNA_PATH_ATTENUATOR); // 正常一直在衰减器挡位
                 log_d("PTT ON ATT_ONLY");
-                LED_BLINK(1000, 500);
+                
                 HAL_Delay(100); // 等待衰减器稳定
                 BK4802Tx(txFreq);
-                LED_ON();
+                LED_BLINK(100, 500);
             }
             else if (getJumperMode() == E_JUMPER_MODE_NORMAL)
             {

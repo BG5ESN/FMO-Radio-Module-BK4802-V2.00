@@ -68,6 +68,15 @@
 
 #define AT_CMD_SMETER "SMETER" // S meter level 1~9
 
+// RF Enable/Disable
+#define AT_CMD_RF "RF"
+#define AT_CMD_RF_ENABLE "ENABLE"
+#define AT_CMD_RF_DISABLE "DISABLE"
+
+// System Command
+#define AT_CMD_SYS "SYS"
+#define AT_CMD_SYS_RESET "RESET"
+
 // report command
 #define AT_CMD_OK "OK"
 #define AT_CMD_SUCCESS "SUCCESS"
@@ -929,6 +938,86 @@ xBool ATCmdParse(ATCmdArgs *outArgs)
                 return xTrue;
             }
         }
+        // RF Enable/Disable
+        else if (xStringnCompare(&atCmdProcRaw[startIdx], AT_CMD_RF, xStringLen(AT_CMD_RF)) == true)
+        {
+            startIdx = startIdx + xStringLen(AT_CMD_RF);
+            if (atCmdProcRaw[startIdx] == '?')
+            {
+                outArgs->cmd = E_AT_CMD_RF;
+                outArgs->result = E_AT_RESULT_OK;
+                outArgs->type = E_AT_CMD_TYPE_GET;
+                log_d("query RF enable state");
+                return xTrue;
+            }
+            else if (atCmdProcRaw[startIdx] == '=')
+            {
+                startIdx = startIdx + 1;
+                if (xStringnCompare(&atCmdProcRaw[startIdx], AT_CMD_RF_ENABLE, xStringLen(AT_CMD_RF_ENABLE)) == true)
+                {
+                    outArgs->cmd = E_AT_CMD_RF;
+                    outArgs->result = E_AT_RESULT_SUCC;
+                    outArgs->type = E_AT_CMD_TYPE_SET;
+                    outArgs->argNum = 1;
+                    outArgs->args[0].argType = E_AT_CMD_ARG_TYPE_STRING;
+                    xStringnCopy(outArgs->args[0].raw.strValue, AT_CMD_RF_ENABLE, xStringLen(AT_CMD_RF_ENABLE));
+                    log_d("set RF ENABLE");
+                    return xTrue;
+                }
+                else if (xStringnCompare(&atCmdProcRaw[startIdx], AT_CMD_RF_DISABLE, xStringLen(AT_CMD_RF_DISABLE)) == true)
+                {
+                    outArgs->cmd = E_AT_CMD_RF;
+                    outArgs->result = E_AT_RESULT_SUCC;
+                    outArgs->type = E_AT_CMD_TYPE_SET;
+                    outArgs->argNum = 1;
+                    outArgs->args[0].argType = E_AT_CMD_ARG_TYPE_STRING;
+                    xStringnCopy(outArgs->args[0].raw.strValue, AT_CMD_RF_DISABLE, xStringLen(AT_CMD_RF_DISABLE));
+                    log_d("set RF DISABLE");
+                    return xTrue;
+                }
+                else
+                {
+                    outArgs->cmd = E_AT_CMD_NONE;
+                    outArgs->result = E_AT_RESULT_INVALID;
+                    log_w("not support RF state");
+                    return xTrue;
+                }
+            }
+        }
+        // System Command (only RESET)
+        else if (xStringnCompare(&atCmdProcRaw[startIdx], AT_CMD_SYS, xStringLen(AT_CMD_SYS)) == true)
+        {
+            startIdx = startIdx + xStringLen(AT_CMD_SYS);
+            if (atCmdProcRaw[startIdx] == '=')
+            {
+                startIdx = startIdx + 1;
+                if (xStringnCompare(&atCmdProcRaw[startIdx], AT_CMD_SYS_RESET, xStringLen(AT_CMD_SYS_RESET)) == true)
+                {
+                    outArgs->cmd = E_AT_CMD_SYS;
+                    outArgs->result = E_AT_RESULT_SUCC; // 立即返回 SUCCESS，实际复位延迟执行
+                    outArgs->type = E_AT_CMD_TYPE_SET;
+                    outArgs->argNum = 1;
+                    outArgs->args[0].argType = E_AT_CMD_ARG_TYPE_STRING;
+                    xStringnCopy(outArgs->args[0].raw.strValue, AT_CMD_SYS_RESET, xStringLen(AT_CMD_SYS_RESET));
+                    log_d("system reset requested");
+                    return xTrue;
+                }
+                else
+                {
+                    outArgs->cmd = E_AT_CMD_NONE;
+                    outArgs->result = E_AT_RESULT_INVALID;
+                    log_w("not support SYS op");
+                    return xTrue;
+                }
+            }
+            else
+            {
+                outArgs->cmd = E_AT_CMD_NONE;
+                outArgs->result = E_AT_RESULT_INVALID;
+                log_w("SYS only support set RESET");
+                return xTrue;
+            }
+        }
         // INVALID
         else
         {
@@ -1082,6 +1171,29 @@ xBool ATCmdArgsGetProc(ATCmdArgs *argsToBeProc, SHARECom *base)
         argsToBeProc->args[0].raw.intValue = base->freqTune;
         return xTrue;
     }
+    else if (argsToBeProc->cmd == E_AT_CMD_RF)
+    {
+        log_d("get RF enable state");
+        argsToBeProc->argNum = 1;
+        argsToBeProc->args[0].argType = E_AT_CMD_ARG_TYPE_STRING;
+        if (base->rfEnable)
+        {
+            xStringnCopy(argsToBeProc->args[0].raw.strValue, AT_CMD_RF_ENABLE, xStringLen(AT_CMD_RF_ENABLE));
+        }
+        else
+        {
+            xStringnCopy(argsToBeProc->args[0].raw.strValue, AT_CMD_RF_DISABLE, xStringLen(AT_CMD_RF_DISABLE));
+        }
+        return xTrue;
+    }
+    else if (argsToBeProc->cmd == E_AT_CMD_SYS)
+    {
+        // 查询不支持，只在 set 时返回 SUCCESS，无需回读参数
+        argsToBeProc->argNum = 1;
+        argsToBeProc->args[0].argType = E_AT_CMD_ARG_TYPE_STRING;
+        xStringnCopy(argsToBeProc->args[0].raw.strValue, AT_CMD_SYS_RESET, xStringLen(AT_CMD_SYS_RESET));
+        return xTrue;
+    }
     log_e("not support command");
     return xFalse;
 }
@@ -1188,6 +1300,25 @@ xBool ATCmdArgsSetProc(ATCmdArgs *argsToBeProc, SHARECom *base)
         fetchPut(E_AT_CMD_FREQTUNE);
         return xTrue;
     }
+    else if (argsToBeProc->cmd == E_AT_CMD_RF)
+    {
+        if (xStringnCompare(argsToBeProc->args[0].raw.strValue, AT_CMD_RF_ENABLE, xStringLen(AT_CMD_RF_ENABLE)) == true)
+        {
+            base->rfEnable = 1;
+        }
+        else if (xStringnCompare(argsToBeProc->args[0].raw.strValue, AT_CMD_RF_DISABLE, xStringLen(AT_CMD_RF_DISABLE)) == true)
+        {
+            base->rfEnable = 0;
+        }
+        fetchPut(E_AT_CMD_RF);
+        return xTrue;
+    }
+    else if (argsToBeProc->cmd == E_AT_CMD_SYS)
+    {
+        // 不修改 SHARECom 数据，只发出功能事件
+        fetchPut(E_AT_CMD_SYS);
+        return xTrue;
+    }
     return xFalse;
 }
 
@@ -1276,6 +1407,14 @@ xBool ATCmdSendResult(ATCmdArgs *inArgs)
         case E_AT_CMD_FREQTUNE:
             sendBufUsedLen = xStringLen(AT_CMD_FREQTUNE);
             xStringnCopy(sendBuf, AT_CMD_FREQTUNE, sendBufUsedLen);
+            break;
+        case E_AT_CMD_RF:
+            sendBufUsedLen = xStringLen(AT_CMD_RF);
+            xStringnCopy(sendBuf, AT_CMD_RF, sendBufUsedLen);
+            break;
+        case E_AT_CMD_SYS:
+            sendBufUsedLen = xStringLen(AT_CMD_SYS);
+            xStringnCopy(sendBuf, AT_CMD_SYS, sendBufUsedLen);
             break;
         default:
             break;
