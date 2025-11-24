@@ -4,6 +4,7 @@
 #include "components.h"
 #include "atCommand.h"
 #include "SHARECom.h"
+#include "wdt.h"
 #define UART_RECV_BUF_SIZE 128
 void atInit(SHARECom *SHARECom);
 void atTask(void);

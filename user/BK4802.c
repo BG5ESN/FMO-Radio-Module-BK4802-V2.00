@@ -436,8 +436,10 @@ void BK4802Tx(float freq)
     BK4802WriteReg(freqRegs[2].addr, freqRegs[2].value);
     BK4802WriteReg(freqRegs[0].addr, freqRegs[0].value);
     BK4802WriteReg(freqRegs[1].addr, freqRegs[1].value);
-    log_i("TX req:%.4f MHz off:%.6f MHz adj:%.6f MHz nDiv:%.1f r2:%04x r0:%04x r1:%04x",
-          freq, g_freqOffsetMHz, adjFreq, nDiv, freqRegs[2].value, freqRegs[0].value, freqRegs[1].value);
+    
+    double actualMHz = ((double)txValue * (double)CRYSTAL) / ((double)nDiv * (double)TWO24);
+    log_i("TX req:%.4f MHz off:%.6f MHz adj:%.4f MHz actual:%.6f MHz nDiv:%.1f r2:%04x r0:%04x r1:%04x",
+        freq, g_freqOffsetMHz, adjFreq, actualMHz, nDiv, freqRegs[2].value, freqRegs[0].value, freqRegs[1].value);
 }
 
 void BK4802SetVolLevel(uint8_t level)
@@ -495,8 +497,10 @@ void BK4802Rx(float freq)
     BK4802WriteReg(freqRegs[2].addr, freqRegs[2].value);
     BK4802WriteReg(freqRegs[0].addr, freqRegs[0].value);
     BK4802WriteReg(freqRegs[1].addr, freqRegs[1].value);
-    log_i("RX req:%.4f MHz off:%.6f MHz adj:%.6f MHz nDiv:%.1f r2:%04x r0:%04x r1:%04x",
-          freq, g_freqOffsetMHz, adjFreq, nDiv, freqRegs[2].value, freqRegs[0].value, freqRegs[1].value);
+    // 计算由寄存器量化后的实际本振频率（接收路径为本振=RF-IF）
+    double actualRxMHz = ((double)rx * (double)CRYSTAL) / ((double)nDiv * (double)TWO24);
+    log_i("RX req:%.4f MHz off:%.6f MHz adj:%.4f MHz actualLO:%.6f MHz nDiv:%.1f r2:%04x r0:%04x r1:%04x",
+        freq, g_freqOffsetMHz, adjFreq, actualRxMHz, nDiv, freqRegs[2].value, freqRegs[0].value, freqRegs[1].value);
 }
 
 void BK4802Init(void)

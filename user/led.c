@@ -1,8 +1,9 @@
 #include "led.h"
+#include "wdt.h"
 #include "main.h"
 #undef LOG_TAG
 #define LOG_TAG "LED"
-//PB1->PA4
+// PB1->PA4
 static GPIO_InitTypeDef GPIO_InitStruct;
 static LedPattern_t localPattern = E_LED_OFF;
 static LedPattern_Parms localParms;
@@ -24,23 +25,23 @@ void ledSet(LedPattern_t pattern, LedPattern_Parms *parms)
     {
     case E_LED_ON:
         localPattern = E_LED_ON;
-        //log_i("led on");
+        // log_i("led on");
         break;
     case E_LED_OFF:
         localPattern = E_LED_OFF;
-        //log_i("led off");
+        // log_i("led off");
         break;
     case E_LED_BLINK:
         localPattern = E_LED_BLINK;
-        //log_i("blink on:%d off:%d", parms->blink.onTime, parms->blink.offTime);
+        // log_i("blink on:%d off:%d", parms->blink.onTime, parms->blink.offTime);
         localParms.blink.onTime = parms->blink.onTime;
         localParms.blink.offTime = parms->blink.offTime;
         break;
     case E_LED_BLINK_WITH_COUNT:
         localPattern = E_LED_BLINK_WITH_COUNT;
-        //log_i("blink count on:%d off:%d count:%d wait:%d", 
-        //      parms->blinkCount.onTime, parms->blinkCount.offTime, 
-        //      parms->blinkCount.count, parms->blinkCount.waitTime);
+        // log_i("blink count on:%d off:%d count:%d wait:%d",
+        //       parms->blinkCount.onTime, parms->blinkCount.offTime,
+        //       parms->blinkCount.count, parms->blinkCount.waitTime);
         localParms.blinkCount.onTime = parms->blinkCount.onTime;
         localParms.blinkCount.offTime = parms->blinkCount.offTime;
         localParms.blinkCount.count = parms->blinkCount.count;
@@ -53,6 +54,7 @@ void ledSet(LedPattern_t pattern, LedPattern_Parms *parms)
 
 void ledTask(void)
 {
+    WDT_Kick(); // 喂狗
     if (localPattern == E_LED_ON)
     {
         HAL_GPIO_WritePin(GPIOB, GPIO_PIN_4, GPIO_PIN_SET);
@@ -66,14 +68,14 @@ void ledTask(void)
         static uint8_t state = 0;
         static uint32_t lastTime = 0;
         uint32_t currentTime = millis();
-        //log_i("Current time: %lu, Last time: %lu, State: %d,onTime:%d,offTime:%d",
-        //      currentTime, lastTime, state, localParms.blink.onTime, localParms.blink.offTime);
+        // log_i("Current time: %lu, Last time: %lu, State: %d,onTime:%d,offTime:%d",
+        //       currentTime, lastTime, state, localParms.blink.onTime, localParms.blink.offTime);
         if (state == 1)
         {
 
             if (currentTime >= (localParms.blink.onTime + lastTime))
             {
-                //log_i("blink on");
+                // log_i("blink on");
                 lastTime = currentTime;
                 state = 0;
                 HAL_GPIO_WritePin(GPIOB, GPIO_PIN_4, GPIO_PIN_RESET);
@@ -83,7 +85,7 @@ void ledTask(void)
         {
             if (currentTime >= (localParms.blink.offTime + lastTime))
             {
-                //log_i("blink off");
+                // log_i("blink off");
                 lastTime = currentTime;
                 state = 1;
                 HAL_GPIO_WritePin(GPIOB, GPIO_PIN_4, GPIO_PIN_SET);
@@ -97,12 +99,12 @@ void ledTask(void)
         static uint32_t currentCount = 0;
         static uint8_t inWaitPeriod = 0;
         uint32_t currentTime = millis();
-        
+
         if (inWaitPeriod)
         {
             // 在等待期间LED保持关闭
             HAL_GPIO_WritePin(GPIOB, GPIO_PIN_4, GPIO_PIN_RESET);
-            
+
             // 检查等待时间是否结束
             if (currentTime >= (localParms.blinkCount.waitTime + lastTime))
             {
@@ -121,10 +123,10 @@ void ledTask(void)
                 lastTime = currentTime;
                 state = 0;
                 HAL_GPIO_WritePin(GPIOB, GPIO_PIN_4, GPIO_PIN_RESET);
-                
+
                 // 完成一次完整的闪烁周期（亮->灭）
                 currentCount++;
-                
+
                 // 检查是否达到指定闪烁次数
                 if (currentCount >= localParms.blinkCount.count)
                 {

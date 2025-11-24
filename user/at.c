@@ -67,12 +67,12 @@ uint32_t tCnt = 0;
 void atTask(void)
 {
     // test
+    WDT_Kick(); // 喂狗
     if (atCOM == NULL)
     {
         log_e("At COM is NULL!");
         return;
     }
-
     ATCmdHandler(atCOM);
 }
 

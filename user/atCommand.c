@@ -8,6 +8,8 @@
 #include "SHARECom.h"
 #include "components.h"
 #include "radioConvert.h"
+#include <stdint.h>
+#include <math.h>
 
 #undef LOG_TAG
 #define LOG_TAG "AT"
@@ -79,6 +81,17 @@
 
 // report command
 #define AT_CMD_OK "OK"
+
+
+static float _roundFreq4(float f)
+{
+    double d = (double)f;
+    if (d >= 0)
+        d = floor(d * 10000.0 + 0.50000) / 10000.0;
+    else
+        d = ceil(d * 10000.0 - 0.50000) / 10000.0;
+    return (float)d;
+}
 #define AT_CMD_SUCCESS "SUCCESS"
 #define AT_CMD_FAILED "FAILED"
 #define AT_CMD_INVALID "INVALID"
@@ -413,6 +426,8 @@ xBool ATCmdParse(ATCmdArgs *outArgs)
                     log_w("parse TX freq failed");
                     return xTrue;
                 }
+                // 解析成功后进行四舍五入，避免 146.67999 漂移
+                outArgs->args[0].raw.floatValue = _roundFreq4(outArgs->args[0].raw.floatValue);
 
                 // check the value
                 if (isVailideHamFreq(outArgs->args[0].raw.floatValue) == xFalse)
@@ -423,7 +438,7 @@ xBool ATCmdParse(ATCmdArgs *outArgs)
                     return xTrue;
                 }
 
-                log_d("set TX freq:%.5f", outArgs->args[0].raw.floatValue);
+                log_d("set TX freq:%.4f", outArgs->args[0].raw.floatValue);
                 outArgs->cmd = E_AT_CMD_TXFREQ;
                 outArgs->result = E_AT_RESULT_SUCC;
                 outArgs->type = E_AT_CMD_TYPE_SET;
@@ -490,6 +505,8 @@ xBool ATCmdParse(ATCmdArgs *outArgs)
                     log_w("parse RX freq failed");
                     return xTrue;
                 }
+                // 解析成功后进行四舍五入
+                outArgs->args[0].raw.floatValue = _roundFreq4(outArgs->args[0].raw.floatValue);
                 if (isVailideHamFreq(outArgs->args[0].raw.floatValue) == xFalse)
                 {
                     outArgs->cmd = E_AT_CMD_NONE;
@@ -498,7 +515,7 @@ xBool ATCmdParse(ATCmdArgs *outArgs)
                     return xTrue;
                 }
 
-                log_d("set RX freq:%.5f", outArgs->args[0].raw.floatValue);
+                log_d("set RX freq:%.4f", outArgs->args[0].raw.floatValue);
                 outArgs->cmd = E_AT_CMD_RXFREQ;
                 outArgs->result = E_AT_RESULT_SUCC;
                 outArgs->type = E_AT_CMD_TYPE_SET;
@@ -1098,7 +1115,7 @@ xBool ATCmdArgsGetProc(ATCmdArgs *argsToBeProc, SHARECom *base)
         argsToBeProc->argNum = 1;
         argsToBeProc->args[0].argType = E_AT_CMD_ARG_TYPE_FLOAT;
         argsToBeProc->args[0].raw.floatValue = base->txFreq;
-        log_d("get TX freq is %.5f", base->txFreq);
+        log_d("get TX freq is %.4f", base->txFreq);
         return xTrue;
     }
     else if (argsToBeProc->cmd == E_AT_CMD_RXFREQ)
@@ -1106,7 +1123,7 @@ xBool ATCmdArgsGetProc(ATCmdArgs *argsToBeProc, SHARECom *base)
         argsToBeProc->argNum = 1;
         argsToBeProc->args[0].argType = E_AT_CMD_ARG_TYPE_FLOAT;
         argsToBeProc->args[0].raw.floatValue = base->rxFreq;
-        log_d("get RX freq is %.5f", base->rxFreq);
+        log_d("get RX freq is %.4f", base->rxFreq);
         return xTrue;
     }
     else if (argsToBeProc->cmd == E_AT_CMD_RXVOL)
@@ -1433,7 +1450,9 @@ xBool ATCmdSendResult(ATCmdArgs *inArgs)
             }
             else if (inArgs->args[ii].argType == E_AT_CMD_ARG_TYPE_FLOAT)
             {
-                sendBufUsedLen += xStringFloatToa(sendBuf + sendBufUsedLen, inArgs->args[ii].raw.floatValue, 4);
+                // 对浮点类型统一四舍五入再输出，避免出现 146.67999
+                float rounded = _roundFreq4(inArgs->args[ii].raw.floatValue);
+                sendBufUsedLen += xStringFloatToa(sendBuf + sendBufUsedLen, rounded, 4);
             }
             else if (inArgs->args[ii].argType == E_AT_CMD_ARG_TYPE_STRING)
             {

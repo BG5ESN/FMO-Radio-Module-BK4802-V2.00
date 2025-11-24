@@ -7,6 +7,7 @@
 #ifndef __RADIO_H__
 #define __RADIO_H__
 #include "components.h"
+#include "wdt.h"
 #include "SHARECom.h"
 #define RSSI_TRIG_THRESHOLD_0 0
 #define RSSI_TRIG_THRESHOLD_1 10

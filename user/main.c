@@ -10,6 +10,7 @@
 #include "led.h"
 #include "misc.h"
 #include "jumper.h"
+#include "wdt.h"
 #undef LOG_TAG
 #define LOG_TAG "MAIN"
 
@@ -17,7 +18,7 @@
 SHARECom COM =
     {
         .bandCap = E_AT_BAND_CAP_144_148 | E_AT_BAND_CAP_430_440,
-  .freqTune = 0, // 频率偏移Hz
+        .freqTune = 0, // 频率偏移Hz
         .rCTCSS = 0,
         .tCTCSS = 0,
         .rxVol = 5,
@@ -26,8 +27,8 @@ SHARECom COM =
         .txFreq = 145.100,
         .rxFreq = 145.100,
         .txPwr = TX_PWR_LOW,
-  .ver = VERSION,
-  .rfEnable = 1};
+        .ver = VERSION,
+        .rfEnable = 1};
 
 // 同步任务，将AT的COM中产生的各种指令，同步至其他模块
 void syncInit(void)
@@ -42,8 +43,9 @@ void syncInit(void)
 }
 void syncTask(void)
 {
-  atCtrl(isEnableCom());         // 控制AT指令的开关，是否启用AT指令
-  COM.smeter = radioGetSMeter(); // 获取信号强度
+  WDT_Kick();                            // 喂狗
+  atCtrl(isEnableCom());                 // 控制AT指令的开关，是否启用AT指令
+  COM.smeter = radioGetSMeter();         // 获取信号强度
   static uint32_t scheduleResetTime = 0; // 计划复位的时间戳 (millis)
   if (scheduleResetTime != 0 && millis() > scheduleResetTime)
   {
@@ -65,12 +67,12 @@ void syncTask(void)
   }
   else if (atCmd == E_AT_CMD_TXFREQ)
   {
-    log_d("setting TX freq:%f", COM.txFreq);
+    log_d("setting TX freq:%.4f", COM.txFreq);
     radioSetTxFreq(COM.txFreq); // 设置发射频率
   }
   else if (atCmd == E_AT_CMD_RXFREQ)
   {
-    log_d("setting RX freq:%f", COM.rxFreq);
+    log_d("setting RX freq:%.4f", COM.rxFreq);
     radioSetRxFreq(COM.rxFreq); // 设置接收频率
   }
   else if (atCmd == E_AT_CMD_RXVOL)
@@ -100,8 +102,8 @@ void syncTask(void)
   }
   else if (atCmd == E_AT_CMD_FREQTUNE)
   {
-  log_d("setting freq tune(offset Hz) %ld", (long)COM.freqTune);
-  radioSetFreqTune(COM.freqTune); // 设置频率偏移(Hz)
+    log_d("setting freq tune(offset Hz) %ld", (long)COM.freqTune);
+    radioSetFreqTune(COM.freqTune); // 设置频率偏移(Hz)
   }
   else if (atCmd == E_AT_CMD_RF)
   {
@@ -135,11 +137,24 @@ int main(void)
   syncInit();
   osTimerInit();
 
+  // 看门狗初始化: 选择预分频=64，目标超时约2秒 (LSI=32768Hz 时近似计算)
+  WDT_Config wdtCfg;
+  wdtCfg.prescaler = IWDG_PRESCALER_64;                // 分频 64
+  wdtCfg.reload = WDT_CalcReload(LSI_VALUE, 2000, 64); // 约 2s 超时
+  if (WDT_Init(&wdtCfg) != HAL_OK)
+  {
+    log_w("WDT init failed");
+  }
+  else
+  {
+    log_d("WDT started (timeout~2s)");
+  }
+
   SCH_Add_Task(atTask, 0, 10);
   SCH_Add_Task(radioTask, 0, 10);
   SCH_Add_Task(ledTask, 0, 10);
   SCH_Add_Task(syncTask, 0, 100);
-  //SCH_Add_Task(BK4802DebugTask, 1000, 1000);
+  // SCH_Add_Task(BK4802DebugTask, 1000, 1000);
   while (1)
   {
     SCH_Dispatch_Tasks();

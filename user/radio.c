@@ -173,7 +173,7 @@ void radioTask(void)
     uint8_t vout = 0;
     uint8_t ptt = 0;
     uint8_t en = 0;
-
+    WDT_Kick(); // 喂狗
     // 读取PTT状态
     ptt = radioGetPTT();
     if (ptt != lastPTT)
@@ -193,14 +193,12 @@ void radioTask(void)
             {
                 log_w("PTT ignored: RF DISABLED via AT+RF");
                 LED_BLINK(100, 1500); // 慢闪表示被禁止
-                ptt = 0;             // 强制视为未按下，后续流程按接收处理
-                lastPTT = 0;         // 更新状态
             }
             else if (getJumperMode() == E_JUMPER_MODE_ATT_ONLY)
             {
                 antennaPathCtrl(ANTENNA_PATH_ATTENUATOR); // 正常一直在衰减器挡位
                 log_d("PTT ON ATT_ONLY");
-                
+
                 HAL_Delay(100); // 等待衰减器稳定
                 BK4802Tx(txFreq);
                 LED_BLINK(100, 500);
