@@ -361,13 +361,13 @@ xBool nDivCacl(float freq, float *outnDiv, uint16_t *outRegs)
     // step1:确定分批系数
     if (freq <= 512 && freq > 384)
     {
-        *outRegs = 0x0000;
+        *outRegs = 0x0002;
         *outnDiv = 4.0000; // 4x1
         return true;
     }
     else if (freq <= 170 && freq >= 128)
     {
-        *outRegs = 0x2002;
+        *outRegs = 0x2004;
         *outnDiv = 12.0000; // 4x3
         return true;
     }
