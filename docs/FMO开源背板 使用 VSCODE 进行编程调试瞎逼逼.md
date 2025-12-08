@@ -55,7 +55,7 @@
 
 ### 使用J-Link烧录&调试
 
-请参考[此链接](https://py32.org/tool/PY32_JFlash_Plugin.html#介绍)和[此链接](https://discuss.em-ide.com/blog/67-cortex-debug)
+请参考[此链接](https://py32.org/tool/PY32_JFlash_Plugin.html#介绍)和[此链接](https://em-ide.com/docs/advance/debug_project/)
 
 ---
 更新时间：2025年12月8日 11点12分
