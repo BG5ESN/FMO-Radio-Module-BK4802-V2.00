@@ -16,9 +16,8 @@
 
 #### 前期准备
 
-1. [芯片支持包](https://www.keil.arm.com/packs/py32f0xx_dfp-puya/devices/)
-2. [VS Code](https://code.visualstudio.com/)
-3. 一台Windows电脑（别问我为什么不能是苹果和LINUX，__因为我没有__）
+1. [VS Code](https://code.visualstudio.com/)
+2. 一台Windows电脑（别问我为什么不能是苹果和LINUX，__因为我没有__）
 
 #### 安装阶段
 
@@ -40,7 +39,17 @@
 
 6. 依次选择`导入项目`-`MDK`-`ARM`
 
-7. 打开MDK工程
+7. 找到并打开MDK工程(`/project/nfm-module.uvprojx`)
+
+8. 依次选择`安装CMSIS芯片支持包`-`From Disk`,并在弹出的文件资源管理器页面找到芯片支持包(`/docs/Puya.PY32F0xx_DFP.1.1.7.pack`)
+
+   <img src="./images/FMO-BK4802-vocodeuse-4.png" alt="FMO-BK4802-vocodeuse-4" style="zoom:50%;" />
+
+9. 依次选择`选择芯片`-`PY32F030x8`
+
+<img src="./images/FMO-BK4802-vocodeuse-5.png" style="zoom:50%;" />
+
+10. 开始使用
 
 ## 附录
 
