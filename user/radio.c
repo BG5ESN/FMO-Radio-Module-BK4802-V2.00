@@ -14,6 +14,7 @@
 #include "speaker.h"
 #include "jumper.h"
 #include "SHARECom.h"
+#include "def.h"
 #undef TAG
 #define TAG "RADIO"
 
@@ -182,8 +183,8 @@ void radioTask(void)
 
         if (ptt) // 二次判断，可能被上面禁用
         {
-
-            if (getJumperMode() == E_JUMPER_MODE_RX_ONLY)
+#if (DBUG_FUNCTION == ANTENNA_TEST) // 启用天线路径测试功能后,根据跳线状态决定天线路径
+            if (getAntennaTestMode() == E_ANTENNA_MODE_RX_ONLY)
             {
                 // DO Nothing
                 log_d("PTT ON RX_ONLY");
@@ -194,7 +195,7 @@ void radioTask(void)
                 log_w("PTT ignored: RF DISABLED via AT+RF");
                 LED_BLINK(100, 1500); // 慢闪表示被禁止
             }
-            else if (getJumperMode() == E_JUMPER_MODE_ATT_ONLY)
+            else if (getAntennaTestMode() == E_ANTENNA_MODE_ATT_ONLY)
             {
                 antennaPathCtrl(ANTENNA_PATH_ATTENUATOR); // 正常一直在衰减器挡位
                 log_d("PTT ON ATT_ONLY");
@@ -203,7 +204,7 @@ void radioTask(void)
                 BK4802Tx(txFreq);
                 LED_BLINK(100, 500);
             }
-            else if (getJumperMode() == E_JUMPER_MODE_NORMAL)
+            else if (getAntennaTestMode() == E_ANTENNA_MODE_NORMAL)
             {
                 log_d("PTT ON");
                 antennaPathCtrl(ANTENNA_PATH_FILTER); // UHF
@@ -211,6 +212,13 @@ void radioTask(void)
                 BK4802Tx(txFreq);
                 LED_ON();
             }
+#else // 未启用天线路径测试,收发工作模式
+            log_d("PTT ON");
+            antennaPathCtrl(ANTENNA_PATH_FILTER); // UHF
+            HAL_Delay(100);                       // 等待衰减器稳定
+            BK4802Tx(txFreq);
+            LED_ON();
+#endif
             speakerPlay(xTrue);
         }
         else
@@ -220,7 +228,7 @@ void radioTask(void)
             HAL_Delay(100);                           // 等待衰减器稳定
             BK4802Rx(rxFreq);
             speakerPlay(xFalse);
-            LED_BLINK_COUNT(200, 200, getJumperMode() + 1, 3000);
+            LED_BLINK_COUNT(200, 200, getJumpHex() + 1, 3000);
         }
     }
 
@@ -261,7 +269,7 @@ void radioTask(void)
             {
                 // log_i("Audio OFF");
                 radioSetAudioOutput(xFalse);
-                LED_BLINK_COUNT(200, 200, getJumperMode() + 1, 3000);
+                LED_BLINK_COUNT(200, 200, getJumpHex() + 1, 3000);
             }
         }
 

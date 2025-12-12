@@ -140,13 +140,13 @@ const static BK4802Reg rxConfig[] = {
                   // B13:LNA增益(0-低;1-高); B12~B10:LNA偏置电流
                   // B09~B07:混频器直流偏置; B05:ASK模式使能
                   // B04~B03:接收前端稳压器输出电压; B02~B00:PA输出功率
-    {14, 0xffe0}, // B15~B14:发射音频数字滤波器增益(0-0dB;1-1dB;2-3.5dB;3-6dB)
+    //{14, 0xffe0}, // B15~B14:发射音频数字滤波器增益(0-0dB;1-1dB;2-3.5dB;3-6dB)
                   // B13~B09:发射音量控制; B08~B05:带内信号能量设置
     {15, 0x061F}, // B12~B00:发射限幅设置
     {16, 0x9e3c}, // B15:发射音频AGC使能(0-无效;1-使能)
     {17, 0x1f00}, // TX Audio AGC设置
     {18, 0xd1d1}, // B15~B04:发射频偏控制
-    {19, 0x200f}, // B15~B14:CIC滤波器增益(0-0dB;1-1dB;2-3.5dB;3-6dB)
+    {19, 0x300C}, // B15~B14:CIC滤波器增益(0-0dB;1-1dB;2-3.5dB;3-6dB)
                   // B13~B12:FM解调输出幅度设置; B03~B00:音量调整
     {20, 0x01ff}, // B15:关闭自动频率校正AFC(0-打开;1-关闭)
     {21, 0xE000}, // AFC阈值设置
@@ -177,13 +177,13 @@ const static BK4802Reg txConfig[] =
                       // B13:LNA增益(0-低;1-高); B12~B10:LNA偏置电流
                       // B09~B07:混频器直流偏置; B05:ASK模式使能
                       // B04~B03:接收前端稳压器输出电压; B02~B00:PA输出功率
-        {14, 0xffe0}, // B15~B14:发射音频数字滤波器增益(0-0dB;1-1dB;2-3.5dB;3-6dB)
+        //{14, 0xffe0}, // B15~B14:发射音频数字滤波器增益(0-0dB;1-1dB;2-3.5dB;3-6dB)
                       // B13~B09:发射音量控制; B08~B05:带内信号能量设置
         {15, 0x061F}, // B12~B00:发射限幅设置
         {16, 0x9e3c}, // B15:发射音频AGC使能(0-无效;1-使能)
         {17, 0x1f00}, // TX Audio AGC设置
         {18, 0xd1d1}, // B15~B04:发射频偏控制
-        {19, 0x200f}, // B15~B14:CIC滤波器增益(0-0dB;1-1dB;2-3.5dB;3-6dB)
+        {19, 0x300C}, // B15~B14:CIC滤波器增益(0-0dB;1-1dB;2-3.5dB;3-6dB)
                       // B13~B12:FM解调输出幅度设置; B03~B00:音量调整
         {20, 0x01ff}, // B15:关闭自动频率校正AFC(0-打开;1-关闭)
         {21, 0xE000}, // AFC阈值设置
@@ -249,8 +249,33 @@ const static BK4802Reg txConfig[] =
 static BK4802Reg dynamicConfig[] =
     {
         {7, 0xED00}, // 15~13 IF Gain
-        {8, 0x17E0}};
+        {8, 0x17E0},
+        {14, 0xFFE0}};
 
+uint16_t BK4802GetDynamicCfg(uint8_t cfgReg)
+{
+    // 遍历:dynamicConfig 找到指定的寄存器参数
+    for (int ii = 0; ii < sizeof(dynamicConfig) / sizeof(dynamicConfig[0]); ii++)
+    {
+        if (dynamicConfig[ii].addr == cfgReg)
+        {
+            return dynamicConfig[ii].value;
+        }
+    }
+    return 0;
+}
+
+void BK4802SetDynamicCfg(uint8_t cfgReg, uint16_t value)
+{
+    for (int ii = 0; ii < sizeof(dynamicConfig) / sizeof(dynamicConfig[0]); ii++)
+    {
+        if (dynamicConfig[ii].addr == cfgReg)
+        {
+            dynamicConfig[ii].value = value;
+            return;
+        }
+    }
+}
 void BK4802SetRSSIThre(uint8_t thre)
 {
     // 0~9
@@ -445,6 +470,19 @@ void BK4802Tx(float freq)
 void BK4802SetVolLevel(uint8_t level)
 {
     // fix volume for FMO Panel No Need to set volume not implemented
+    uint8_t vol;
+    if (level > 7)
+    {
+        level = 7;
+    }
+    vol = (level * 32) / 7;
+
+    uint16_t reg14 = BK4802GetDynamicCfg(14);
+    reg14 &= ~(0x1F << 9); // 清除原有音量值
+    reg14 |= (vol << 9);   // 设置新的音量值
+
+    BK4802WriteReg(14, reg14);
+    BK4802SetDynamicCfg(14, reg14);
 }
 
 uint8_t BK4802GetVolLevel(void)
@@ -671,31 +709,6 @@ uint8_t BK4802GetSMeter(void)
         smeter = 10;
     }
     return smeter;
-}
-
-uint16_t BK4802GetDynamicCfg(uint8_t cfgReg)
-{
-    // 遍历:dynamicConfig 找到指定的寄存器参数
-    for (int ii = 0; ii < sizeof(dynamicConfig) / sizeof(dynamicConfig[0]); ii++)
-    {
-        if (dynamicConfig[ii].addr == cfgReg)
-        {
-            return dynamicConfig[ii].value;
-        }
-    }
-    return 0;
-}
-
-void BK4802SetDynamicCfg(uint8_t cfgReg, uint16_t value)
-{
-    for (int ii = 0; ii < sizeof(dynamicConfig) / sizeof(dynamicConfig[0]); ii++)
-    {
-        if (dynamicConfig[ii].addr == cfgReg)
-        {
-            dynamicConfig[ii].value = value;
-            return;
-        }
-    }
 }
 
 void BK4802SetPower(uint8_t level)

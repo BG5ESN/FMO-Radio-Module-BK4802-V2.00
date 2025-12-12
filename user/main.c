@@ -22,7 +22,7 @@ SHARECom COM =
         .rCTCSS = 0,
         .tCTCSS = 0,
         .rxVol = 5,
-        .txVol = 5,
+        .txVol = 6,
         .sql = 3,
         .txFreq = 145.100,
         .rxFreq = 145.100,
@@ -129,10 +129,11 @@ int main(void)
   componentInit();
   systemClockInit();
   speakerInit();
-  log_d("NFM Module V1.00 AT Command");
-  jumperInit();
-  radioInit();
+  jumperInit();      // 初始化跳线
   antennaPathInit(); // 初始化天线路径
+  log_d("NFM Module V1.00 AT Command");
+  // complex components init
+  radioInit();
   atInit(&COM);
   syncInit();
   osTimerInit();
