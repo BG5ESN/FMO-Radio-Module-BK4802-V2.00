@@ -469,15 +469,17 @@ void BK4802Tx(float freq)
 
 void BK4802SetVolLevel(uint8_t level)
 {
-    // fix volume for FMO Panel No Need to set volume not implemented
     uint8_t vol;
-    if (level > 7)
-    {
-        level = 7;
-    }
-    vol = (level * 32) / 7;
 
-    uint16_t reg14 = BK4802GetDynamicCfg(14);
+    uint16_t reg14;
+    reg14 = BK4802GetDynamicCfg(14);
+
+    if (level > 31)
+    {
+        level = 31;
+    }
+
+    vol = level;
     reg14 &= ~(0x1F << 9); // 清除原有音量值
     reg14 |= (vol << 9);   // 设置新的音量值
 
