@@ -53,17 +53,20 @@
 
 如果你需要从头开始创建EIDE项目，可以按照以下步骤导入现有的MDK工程：
 
-1. 在VS Code中，依次选择`导入项目`-`MDK`-`ARM`
-2. 找到并打开MDK工程文件(`/project/nfm-module.uvprojx`)
-3. 依次选择`安装CMSIS芯片支持包`-`From Disk`，在弹出的文件资源管理器页面找到芯片支持包(`/docs/Puya.PY32F0xx_DFP.1.1.7.pack`)
+1. 在`操作`-`安装实用工具`中选择安装 AC6 编译环境并根据提示重启插件
+
+   <img src="./images/FMO-BK4802-vocodeuse-8.png" alt="FMO-BK4802-vocodeuse-4" style="zoom:50%;" />
+2. 在VS Code中，依次选择`导入项目`-`MDK`-`ARM`
+3. 找到并打开MDK工程文件(`/project/nfm-module.uvprojx`)
+4. 依次选择`安装CMSIS芯片支持包`-`From Disk`，在弹出的文件资源管理器页面找到芯片支持包(`/docs/Puya.PY32F0xx_DFP.1.1.7.pack`)
 
    <img src="./images/FMO-BK4802-vocodeuse-4.png" alt="FMO-BK4802-vocodeuse-4" style="zoom:50%;" />
 
-4. 依次选择`选择芯片`-`PY32F030x8`
+5. 依次选择`选择芯片`-`PY32F030x8`
 
    <img src="./images/FMO-BK4802-vocodeuse-5.png" style="zoom:50%;" />
 
-5. 完成导入后，项目默认使用AC6工具链
+6. 完成导入后，项目默认使用AC6工具链
 
 ### 2. 配置GCC工具链
 
