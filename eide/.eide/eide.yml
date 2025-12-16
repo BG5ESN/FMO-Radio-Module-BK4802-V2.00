@@ -81,6 +81,10 @@ virtualFolder:
     - name: ::CMSIS
       files: []
       folders: []
+    - name: Docs
+      files:
+        - path: ../docs/FMO开源背板 使用 VSCODE 进行编程调试瞎逼逼.md
+      folders: []
 dependenceList: []
 outDir: build
 miscInfo:
@@ -92,6 +96,7 @@ targets:
         - USE_HAL_DRIVER
         - PY32F030x8
       incList:
+        - .
         - ../CMSIS/Device/PY32F0xx/Include
         - ../CMSIS/Device/PY32F0xx/Source
         - ../CMSIS/Include

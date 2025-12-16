@@ -4,7 +4,6 @@
 /.eide/log
 /.eide.usr.ctx.json
 /.cmsis
-/.pack
 
 # project out
 /build
