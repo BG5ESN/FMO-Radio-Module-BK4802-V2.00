@@ -2,6 +2,8 @@
 
 ## VS Code编程调试方案
 
+### 方案：采用EIDE插件+GCC工具链（推荐）
+
 本项目已配置好EIDE-GCC开发环境，使用GNU Arm Embedded Toolchain进行编译。你只需要安装必要的工具，然后打开工作区即可开始编程调试。
 
 #### 前期准备
@@ -16,11 +18,12 @@
 
 1. 安装VS Code
 2. 安装[EIDE插件](https://marketplace.visualstudio.com/items?itemName=CL.eide)
-3. 依次打开`操作`-`安装实用工具`
+3. 安装[Cortex-Debug插件](https://marketplace.visualstudio.com/items?itemName=marus25.cortex-debug)
+4. 依次打开`操作`-`安装实用工具`
 
 <img src="./images/FMO-BK4802-vocodeuse-1.png" alt="FMO-BK4802-vocodeuse-1" style="zoom: 50%;" />
 
-4. 安装以下工具：
+5. 安装以下工具：
    - Cppcheck（代码静态分析）
    - **GNU Arm Embedded Toolchain（必须安装）**
    - OpenOCD Programmer（调试器）
@@ -28,22 +31,41 @@
 
 <img src="./images/FMO-BK4802-vocodeuse-3.png" alt="FMO-BK4802-vocodeuse-2" style="zoom:50%;" />
 
-5. 安装完毕后按照提示重启VS Code
+6. 安装完毕后按照提示重启VS Code
 
    <img src="./images/FMO-BK4802-vocodeuse-2.png" alt="FMO-BK4802-vocodeuse-3" style="zoom:50%;" />
 
-6. **打开工作区**：
+7. **打开工作区**：
     - 在VS Code中，选择`文件`-`打开文件夹`
     - 导航到本项目根目录下的`eide`文件夹并打开
     - 系统会自动加载EIDE项目配置
 
-   [需要补图：打开eide工作区界面]
+   <img src="./images/FMO-BK4802-vocodeuse-9.png" alt="FMO-BK4802-vocodeuse-3" style="zoom:50%;" />
 
-7. **开始使用**：
-    - 现在你可以：
-      - 编译项目：按`Ctrl+Shift+B`或点击底部状态栏的编译按钮
-      - 烧录程序：在EIDE插件界面选择烧录器（如J-Link）
-      - 调试程序：按`F5`启动调试会话
+8. **配置J-Link调试环境**：由于调试配置文件（`.vscode/launch.json`）已在`.gitignore`中排除，需要手动配置调试环境。
+
+   1. **添加PY32F0芯片支持到J-Link**：
+      - 参考[官方指南](https://py32.org/tool/PY32_JFlash_Plugin.html#介绍)，将PY32F0系列芯片的设备描述文件添加到J-Link目录
+      - EIDE安装的J-Link路径：`${userHome}/.eide/tools/jlink`
+
+   2. **配置VS Code调试**：
+      - 打开左侧的`运行和调试`面板（Ctrl+Shift+D）
+      - 点击`创建一个launch.json文件`
+      - 选择`工作区`
+      - 选择`更多Cortex-Debug选项`
+      - 选择`Debug: J-Link`
+
+      <img src="./images/FMO-BK4802-vocodeuse-10.png" alt="创建调试配置" style="zoom: 50%;" />
+
+   3. **调试配置已预置**：
+      - 项目已包含基本的调试配置模板
+      - 启动调试时，系统会自动加载正确的配置
+
+9. **开始使用**：
+   现在你可以：
+   - **编译项目**：按`Ctrl+Shift+B`或点击底部状态栏的编译按钮
+   - **烧录程序**：在EIDE插件界面选择J-Link作为烧录器
+   - **启动调试**：按`F5`键开始调试会话
 
 > **注意**：项目已预配置为GCC工具链，无需额外设置。如需了解如何从MDK工程导入或配置GCC工具链，请查看附录。
 
@@ -91,12 +113,6 @@
 3. **验证配置**：
    - 编译项目，确认没有错误
    - 检查生成的ELF文件大小和内存布局
-
-### 3. 使用J-Link烧录&调试
-
-- 请参考[此链接](https://py32.org/tool/PY32_JFlash_Plugin.html#介绍)和[此链接](https://em-ide.com/docs/advance/debug_project/)。
-
-- EIDE安装Jlink的目录在`${userHome}/.eide/tools/jlink`。
 
 ---
 更新时间：2025年12月16日
