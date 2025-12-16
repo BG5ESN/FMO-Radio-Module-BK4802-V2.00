@@ -1,8 +1,8 @@
 version: "4.1"
 name: nfm-module
 type: ARM
-deviceName: null
-packDir: null
+deviceName: PY32F030x8
+packDir: .pack/Puya/PY32F0xx_DFP.1.1.7
 srcDirs: []
 virtualFolder:
   name: <virtual_root>
