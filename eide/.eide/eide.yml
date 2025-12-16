@@ -1,0 +1,294 @@
+version: "4.1"
+name: nfm-module
+type: ARM
+deviceName: PY32F030x8
+packDir: .pack/Puya/PY32F0xx_DFP.1.1.7
+srcDirs: []
+virtualFolder:
+  name: <virtual_root>
+  files: []
+  folders:
+    - name: Common
+      files:
+        - path: ../common/system_py32f0xx.c
+        - path: startup_py32f030xx.s
+      folders: []
+    - name: Hal
+      files:
+        - path: ../hal/PY32F0xx_HAL_Driver/Src/py32f0xx_hal.c
+        - path: ../hal/PY32F0xx_HAL_Driver/Src/py32f0xx_hal_adc.c
+        - path: ../hal/PY32F0xx_HAL_Driver/Src/py32f0xx_hal_comp.c
+        - path: ../hal/PY32F0xx_HAL_Driver/Src/py32f0xx_hal_cortex.c
+        - path: ../hal/PY32F0xx_HAL_Driver/Src/py32f0xx_hal_crc.c
+        - path: ../hal/PY32F0xx_HAL_Driver/Src/py32f0xx_hal_dma.c
+        - path: ../hal/PY32F0xx_HAL_Driver/Src/py32f0xx_hal_exti.c
+        - path: ../hal/PY32F0xx_HAL_Driver/Src/py32f0xx_hal_flash.c
+        - path: ../hal/PY32F0xx_HAL_Driver/Src/py32f0xx_hal_gpio.c
+        - path: ../hal/PY32F0xx_HAL_Driver/Src/py32f0xx_hal_i2c.c
+        - path: ../hal/PY32F0xx_HAL_Driver/Src/py32f0xx_hal_irda.c
+        - path: ../hal/PY32F0xx_HAL_Driver/Src/py32f0xx_hal_iwdg.c
+        - path: ../hal/PY32F0xx_HAL_Driver/Src/py32f0xx_hal_led.c
+        - path: ../hal/PY32F0xx_HAL_Driver/Src/py32f0xx_hal_lptim.c
+        - path: ../hal/PY32F0xx_HAL_Driver/Src/py32f0xx_hal_pwr.c
+        - path: ../hal/PY32F0xx_HAL_Driver/Src/py32f0xx_hal_rcc.c
+        - path: ../hal/PY32F0xx_HAL_Driver/Src/py32f0xx_hal_rcc_ex.c
+        - path: ../hal/PY32F0xx_HAL_Driver/Src/py32f0xx_hal_rtc.c
+        - path: ../hal/PY32F0xx_HAL_Driver/Src/py32f0xx_hal_rtc_ex.c
+        - path: ../hal/PY32F0xx_HAL_Driver/Src/py32f0xx_hal_spi.c
+        - path: ../hal/PY32F0xx_HAL_Driver/Src/py32f0xx_hal_tim.c
+        - path: ../hal/PY32F0xx_HAL_Driver/Src/py32f0xx_hal_tim_ex.c
+        - path: ../hal/PY32F0xx_HAL_Driver/Src/py32f0xx_hal_uart.c
+        - path: ../hal/PY32F0xx_HAL_Driver/Src/py32f0xx_hal_usart.c
+        - path: ../hal/PY32F0xx_HAL_Driver/Src/py32f0xx_hal_wwdg.c
+      folders: []
+    - name: Components
+      files:
+        - path: ../components/easylogger/src/elog.c
+        - path: ../components/easylogger/src/elog_utils.c
+        - path: ../components/port/elog_port.c
+        - path: ../components/port/millis.c
+        - path: ../components/RTT/RTT/SEGGER_RTT.c
+        - path: ../components/RTT/RTT/SEGGER_RTT_printf.c
+        - path: ../components/basic/math/xMath.c
+        - path: ../components/basic/ring/xRingBuf.c
+        - path: ../components/basic/string/xString.c
+        - path: ../components/Sch51/Sch51.c
+        - path: ../components/algorithm/PID/pid.c
+        - path: ../components/softI2C/softI2C.c
+      folders: []
+    - name: Device
+      files:
+        - path: ../device/osTimer.c
+        - path: ../device/systemClock.c
+      folders: []
+    - name: User
+      files:
+        - path: ../user/at.c
+        - path: ../user/atCommand.c
+        - path: ../user/BK4802.c
+        - path: ../user/components.c
+        - path: ../user/led.c
+        - path: ../user/main.c
+        - path: ../user/py32f0xx_it.c
+        - path: ../user/radio.c
+        - path: ../user/raidoConvert.c
+        - path: ../user/speaker.c
+        - path: ../user/misc.c
+        - path: ../user/antennaPath.c
+        - path: ../user/jumper.c
+        - path: ../user/wdt.c
+      folders: []
+    - name: ::CMSIS
+      files: []
+      folders: []
+    - name: Docs
+      files:
+        - path: ../docs/FMO开源背板 使用 VSCODE 进行编程调试瞎逼逼.md
+      folders: []
+dependenceList: []
+outDir: build
+miscInfo:
+  uid: 285db17d2706e82205a0048fe714115b
+targets:
+  nfm-module-v1:
+    cppPreprocessAttrs:
+      defineList:
+        - USE_HAL_DRIVER
+        - PY32F030x8
+      incList:
+        - .
+        - ../CMSIS/Device/PY32F0xx/Include
+        - ../CMSIS/Device/PY32F0xx/Source
+        - ../CMSIS/Include
+        - ../CMSIS
+        - ../common
+        - ../hal
+        - ../hal/PY32F0xx_HAL_Driver/Inc
+        - ../hal/PY32F0xx_HAL_Driver/Src
+        - ../support
+        - ../user
+        - ../components
+        - ../components/easylogger/inc
+        - ../components/easylogger/src
+        - ../components/millis
+        - ../components/port
+        - ../components/RTT/RTT
+        - ../components/RTT/Config
+        - ../components/basic/math
+        - ../components/basic/ring
+        - ../components/basic/string
+        - ../components/algorithm/PID
+        - ../components/Sch51
+        - ../components/softI2C
+        - ../device
+        - ../user/atTask
+        - ../user/radio
+        - .cmsis/include
+        - ../project/RTE/_nfm-module-v1
+      libList: []
+    excludeList: []
+    toolchain: GCC
+    toolchainConfigMap:
+      AC6:
+        archExtensions: ""
+        cpuType: Cortex-M0+
+        floatingPointHardware: none
+        options:
+          version: 3
+          afterBuildTasks: []
+          asm-compiler:
+            $use: asm-auto
+            misc-controls: ""
+          beforeBuildTasks: []
+          c/cpp-compiler:
+            language-c: c99
+            language-cpp: c++11
+            link-time-optimization: false
+            one-elf-section-per-function: true
+            optimization: level-1
+            short-enums#wchar: true
+            warnings: ac5-like-warnings
+          global:
+            output-debug-info: enable
+            use-microLIB: true
+          linker:
+            $outputTaskExcludes:
+              - .bin
+            misc-controls: --diag_suppress=L6329
+            output-format: elf
+            ro-base: "0x08000000"
+            rw-base: "0x20000000"
+            xo-base: ""
+        scatterFilePath: ""
+        storageLayout:
+          RAM:
+            - id: 1
+              isChecked: false
+              mem:
+                size: "0x0"
+                startAddr: "0x0"
+              noInit: false
+              tag: RAM
+            - id: 2
+              isChecked: false
+              mem:
+                size: "0x0"
+                startAddr: "0x0"
+              noInit: false
+              tag: RAM
+            - id: 3
+              isChecked: false
+              mem:
+                size: "0x0"
+                startAddr: "0x0"
+              noInit: false
+              tag: RAM
+            - id: 1
+              isChecked: true
+              mem:
+                size: "0x2000"
+                startAddr: "0x20000000"
+              noInit: false
+              tag: IRAM
+            - id: 2
+              isChecked: false
+              mem:
+                size: "0x0"
+                startAddr: "0x0"
+              noInit: false
+              tag: IRAM
+          ROM:
+            - id: 1
+              isChecked: false
+              isStartup: false
+              mem:
+                size: "0x0"
+                startAddr: "0x0"
+              tag: ROM
+            - id: 2
+              isChecked: false
+              isStartup: false
+              mem:
+                size: "0x0"
+                startAddr: "0x0"
+              tag: ROM
+            - id: 3
+              isChecked: false
+              isStartup: false
+              mem:
+                size: "0x0"
+                startAddr: "0x0"
+              tag: ROM
+            - id: 1
+              isChecked: true
+              isStartup: true
+              mem:
+                size: "0x10000"
+                startAddr: "0x8000000"
+              tag: IROM
+            - id: 2
+              isChecked: false
+              isStartup: false
+              mem:
+                size: "0x0"
+                startAddr: "0x0"
+              tag: IROM
+        useCustomScatterFile: false
+      GCC:
+        archExtensions: ""
+        cpuType: Cortex-M0+
+        floatingPointHardware: none
+        options:
+          version: 5
+          afterBuildTasks: []
+          asm-compiler:
+            ASM_FLAGS: ""
+          beforeBuildTasks: []
+          c/cpp-compiler:
+            CXX_FLAGS: ""
+            C_FLAGS: ""
+            language-c: c11
+            language-cpp: c++11
+            one-elf-section-per-data: true
+            one-elf-section-per-function: true
+            optimization: level-debug
+            warnings: all-warnings
+          global:
+            $float-abi-type: hard
+            misc-control: ""
+            not-use-syscalls: true
+            output-debug-info: enable
+            use-newlib-nano: true
+          linker:
+            $outputTaskExcludes:
+              - .bin
+            LD_FLAGS: ""
+            LIB_FLAGS: -lm
+            output-format: elf
+            remove-unused-input-sections: true
+        scatterFilePath: py32f030x8.ld
+        storageLayout:
+          RAM: []
+          ROM: []
+        useCustomScatterFile: true
+      LLVM_ARM:
+        archExtensions: ""
+        cpuType: Cortex-M0+
+        floatingPointHardware: none
+        options: ""
+        scatterFilePath: py32f030x8.ld
+        storageLayout:
+          RAM: []
+          ROM: []
+        useCustomScatterFile: true
+    uploadConfigMap:
+      JLink:
+        baseAddr: ""
+        bin: ""
+        cpuInfo:
+          cpuName: PY32F030x8
+          vendor: Puya
+        otherCmds: ""
+        proType: 1
+        speed: 8000
+    uploader: JLink
