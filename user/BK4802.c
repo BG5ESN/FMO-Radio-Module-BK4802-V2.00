@@ -1,24 +1,12 @@
 #include "components.h"
 #include "radio.h"
 #include "main.h"
-#define BK4802_SNR_BAD_THRE 1
-
-#define BK4802_SET_1 1
-#define BK4802_SET_2 2
-#define BK4802_CONFIG_SET BK4802_SET_2
+#define BK4802_SNR_BAD_THRE 2
 
 #define IF 0.1370000
 #define TWO24 16777216
 #define CRYSTAL 21.2500000
 
-#define PERIOD_VALUE (uint32_t)(1000 - 1)
-#define PULSE1_VALUE (uint32_t)(100)
-#define PWM_VOL_CHANNEL TIM_CHANNEL_2
-#define PWM_SQL_CHANNEL TIM_CHANNEL_3
-#define ADC_VOL_CHANNEL ADC_CHANNEL_6
-#define ADC_SQL_CHANNEL ADC_CHANNEL_5
-static TIM_HandleTypeDef TimHandle;
-static TIM_OC_InitTypeDef sConfig;
 static uint8_t thresholdIdx = 0;
 static uint8_t softRSSIThre = 80; // default
 // 范围60~127 共10档,均匀分布
@@ -26,9 +14,7 @@ static uint8_t softRSSIThre = 80; // default
 static const uint8_t threTable[] = {0, 64, 70, 76, 82, 89, 97, 104, 112, 118, 125};
 #define THRE_SIZE (sizeof(threTable) / sizeof(threTable[0]))
 static xBool isTx = false;
-// 频率偏移(单位: MHz)。用于补偿晶振/射频频率误差。正值=>提高实际发射/接收本振频率
 static float g_freqOffsetMHz = 0.0f;
-// 记录最近一次用户层（未带偏移）请求的频率(MHz)，供按 PPM 方式设置偏移时参考
 static float g_lastUserFreqMHz = 0.0f;
 typedef struct
 {
@@ -99,7 +85,11 @@ unsigned char sdaRead(void)
 
 void radioDelay(void)
 {
+    uint32_t i = 100;
+    while (i--)
+        ;
 }
+
 static SoftI2cHandler SoftIICPort =
     {
         .delay = radioDelay,
@@ -117,52 +107,10 @@ static SoftI2cHandler SoftIICPort =
 
 #endif
 
-#if (BK4802_CONFIG_SET == BK4802_SET_2)
-const static BK4802Reg rxConfig[] = {
-    // Register configuration array {REG, VALUE}
-    {4, 0x0300}, // B15:1-关闭频率综合器; B14:1-关闭接收前端; B13:1-关闭接收中频; B12:1-关闭接收音频
-                 // B11:1-关闭发射前端; B10:1-关闭发射拼音; B09:1-关闭采样ADC
-    {5, 0x0C04}, // 锁相环相关设置，建议用默认值
-    {6, 0xf140}, // 锁相环相关设置，建议用默认值
-    //{7, 0xEd00}, // B10：触发锁相环校准，上升沿有效
-    //{8, 0x1700},  // 锁相环相关设置，建议用默认值 dynamicConfig,由动态寄存器控制函数控制
-    {9, 0xe0e0},  // 锁相环相关设置
-    {10, 0x8543}, // B15~B10：微调晶体振荡器频率; B07~B06：ADC稳压器输出电压
-                  // B05:1-中频ADC时钟有效; B04:1-采样ADC时钟有效
-                  // B03~B02：晶体振荡器幅度; B01~B00：数字稳压器输出电压
-    {11, 0x0700}, // B15~B13：发射音频ADC参考电压; B12:增加发射音频VGA增益
-                  // B06:麦克风输入电阻(0-16k,1-8k); B05:麦克风VGA反馈电阻(0-52k,1-26k)
-                  // B04~B03：音频功放非交叠时间(0-2nS;1-3nS;2-4nS;3-5nS)
-    {12, 0xa066}, // B15~B08：接收中频ADC参考电压; B07~B05：接收中频增益(3dB/级)
-                  // B04:接收中频滤波器带宽(0-200kHz;1-1MHz)
-                  // B03:接收中频VGA电流偏置(0-2uA;1-10uA); B02~B00：中频稳压器输出电压
-    {13, 0xffff}, // B15:收发控制方式(0-寄存器;1-DSP); B14:收发模式(0-接收;1-发射)
-                  // B13:LNA增益(0-低;1-高); B12~B10:LNA偏置电流
-                  // B09~B07:混频器直流偏置; B05:ASK模式使能
-                  // B04~B03:接收前端稳压器输出电压; B02~B00:PA输出功率
-    //{14, 0xffe0}, // B15~B14:发射音频数字滤波器增益(0-0dB;1-1dB;2-3.5dB;3-6dB)
-                  // B13~B09:发射音量控制; B08~B05:带内信号能量设置
-    {15, 0x061F}, // B12~B00:发射限幅设置
-    {16, 0x9e3c}, // B15:发射音频AGC使能(0-无效;1-使能)
-    {17, 0x1f00}, // TX Audio AGC设置
-    {18, 0xd1d1}, // B15~B04:发射频偏控制
-    {19, 0x300C}, // B15~B14:CIC滤波器增益(0-0dB;1-1dB;2-3.5dB;3-6dB)
-                  // B13~B12:FM解调输出幅度设置; B03~B00:音量调整
-    {20, 0x01ff}, // B15:关闭自动频率校正AFC(0-打开;1-关闭)
-    {21, 0xE000}, // AFC阈值设置
-    {22, 0x0c00}, // B15:IQ边带选择(0-上边带;1-下边带)
-                  // B14:AFC方向选择(0-上边带;1-下边带)
-                  // B07~B00:静噪RSSI阈值
-};
-#define BK4802RxRegNum (sizeof(rxConfig) / sizeof(BK4802Reg))
-
-const static BK4802Reg txConfig[] =
+/*通用寄存器,配置后不再变化*/
+const static BK4802Reg commonConfig[] =
     {
-        {4, 0x7C00},
-        {5, 0x0004},
-        {6, 0xf140}, // 锁相环相关设置，建议用默认值
-        //{7, 0xEd00}, // B10：触发锁相环校准，上升沿有效
-        //{8, 0x1700},  // 锁相环相关设置，建议用默认值 dynamicConfig,由动态寄存器控制函数控制
+        {6, 0xf140},  // 锁相环相关设置，建议用默认值
         {9, 0xe0e0},  // 锁相环相关设置
         {10, 0x8543}, // B15~B10：微调晶体振荡器频率; B07~B06：ADC稳压器输出电压
                       // B05:1-中频ADC时钟有效; B04:1-采样ADC时钟有效
@@ -177,80 +125,45 @@ const static BK4802Reg txConfig[] =
                       // B13:LNA增益(0-低;1-高); B12~B10:LNA偏置电流
                       // B09~B07:混频器直流偏置; B05:ASK模式使能
                       // B04~B03:接收前端稳压器输出电压; B02~B00:PA输出功率
-        //{14, 0xffe0}, // B15~B14:发射音频数字滤波器增益(0-0dB;1-1dB;2-3.5dB;3-6dB)
-                      // B13~B09:发射音量控制; B08~B05:带内信号能量设置
         {15, 0x061F}, // B12~B00:发射限幅设置
         {16, 0x9e3c}, // B15:发射音频AGC使能(0-无效;1-使能)
         {17, 0x1f00}, // TX Audio AGC设置
         {18, 0xd1d1}, // B15~B04:发射频偏控制
         {19, 0x300C}, // B15~B14:CIC滤波器增益(0-0dB;1-1dB;2-3.5dB;3-6dB)
                       // B13~B12:FM解调输出幅度设置; B03~B00:音量调整
+
         {20, 0x01ff}, // B15:关闭自动频率校正AFC(0-打开;1-关闭)
+
         {21, 0xE000}, // AFC阈值设置
         {22, 0x0c00}, // B15:IQ边带选择(0-上边带;1-下边带)
                       // B14:AFC方向选择(0-上边带;1-下边带)
                       // B07~B00:静噪RSSI阈值
-};
-#define BK4802TxRegNum (sizeof(txConfig) / sizeof(BK4802Reg))
 
-#endif
-#if (BK4802_CONFIG_SET == BK4802_SET_1)
-const static BK4802Reg rxConfig[] =
-    {
-        {4, 0x0300}, // TX RX Control RX 0x0300 TX 0x7C00
-        {5, 0x8E04}, // 官方给了2个值：一个是0C04，一个是0004,这里用了0x8e04，不知道是不是官方给的值有误，暂且不动
-        {6, 0xF140}, // 官方建议使用默认值
-        {7, 0xED00}, // 增益值，官方给的默认值
-        {8, 0x17E0}, // B07~B05: Power level of TX PA
-        {9, 0xe0e0},
-        {10, 0x8543},
-        {11, 0x0700},
-        {12, 0xA066},
-        {13, 0xFFFF},
-        {14, 0xFFE0},
-        {15, 0x07a0},
-        {16, 0x9E3C},
-        {17, 0x1F00},
-        {18, 0xD1D1},
-        {19, 0x200F},
-        {20, 0x01FF},
-        {21, 0xE000},
-        {22, 0x0340},
 };
+#define BK4802CommonRegNum (sizeof(commonConfig) / sizeof(BK4802Reg))
+/*接收寄存器*/
+const static BK4802Reg rxConfig[] = {
+    // Register configuration array {REG, VALUE}
+    {4, 0x0300}, // B15:1-关闭频率综合器; B14:1-关闭接收前端; B13:1-关闭接收中频; B12:1-关闭接收音频
+                 // B11:1-关闭发射前端; B10:1-关闭发射拼音; B09:1-关闭采样ADC
+    {5, 0x0C04}, // 锁相环相关设置，建议用默认值
 
+};
 #define BK4802RxRegNum (sizeof(rxConfig) / sizeof(BK4802Reg))
-
+/*发送寄存器*/
 const static BK4802Reg txConfig[] =
     {
         {4, 0x7C00},
-        {5, 0x0C04},
-        {6, 0xF140},
-        {7, 0xED00},
-        {8, 0x3fE0},
-        {9, 0xe0e0},
-        {10, 0x8543},
-        {11, 0x0700},
-        {12, 0xA066},
-        {13, 0xFFFF},
-        {14, 0xffe0},
-        {15, 0x061f},
-        {16, 0x9e3c},
-        {17, 0x1f00},
-        {18, 0xd1C1},
-        {19, 0x200f},
-        {20, 0x01FF},
-        {21, 0xE000},
-        {22, 0x0340},
+        {5, 0x0004},
 };
-
 #define BK4802TxRegNum (sizeof(txConfig) / sizeof(BK4802Reg))
-#endif
-
+/*动态寄存器（如音量）*/
 static BK4802Reg dynamicConfig[] =
     {
         {7, 0xED00}, // 15~13 IF Gain
         {8, 0x17E0},
         {14, 0xFFE0}};
+#define BK4802DynamicRegNum (sizeof(dynamicConfig) / sizeof(BK4802Reg))
 
 uint16_t BK4802GetDynamicCfg(uint8_t cfgReg)
 {
@@ -267,7 +180,7 @@ uint16_t BK4802GetDynamicCfg(uint8_t cfgReg)
 
 void BK4802SetDynamicCfg(uint8_t cfgReg, uint16_t value)
 {
-    for (int ii = 0; ii < sizeof(dynamicConfig) / sizeof(dynamicConfig[0]); ii++)
+    for (int ii = 0; ii < BK4802DynamicRegNum; ii++)
     {
         if (dynamicConfig[ii].addr == cfgReg)
         {
@@ -276,6 +189,7 @@ void BK4802SetDynamicCfg(uint8_t cfgReg, uint16_t value)
         }
     }
 }
+
 void BK4802SetRSSIThre(uint8_t thre)
 {
     // 0~9
@@ -380,6 +294,31 @@ uint16_t BK4802ChipID(void)
     return BK4802ReadReg(27);
 }
 
+void BK4802SetVolLevel(uint8_t level) // 0~31
+{
+    uint8_t vol;
+
+    uint16_t reg14;
+    reg14 = BK4802GetDynamicCfg(14);
+
+    if (level > 31)
+    {
+        level = 31;
+    }
+
+    vol = level;
+    reg14 &= ~(0x1F << 9); // 清除原有音量值
+    reg14 |= (vol << 9);   // 设置新的音量值
+
+    BK4802WriteReg(14, reg14);
+    BK4802SetDynamicCfg(14, reg14);
+}
+
+uint8_t BK4802GetVolLevel(void)
+{
+    return 0; // not implemented
+}
+
 xBool nDivCacl(float freq, float *outnDiv, uint16_t *outRegs)
 {
 
@@ -420,6 +359,14 @@ xBool nDivCacl(float freq, float *outnDiv, uint16_t *outRegs)
     }
 }
 
+void BK4802Default(void)
+{
+    for (int i = 0; i < BK4802CommonRegNum; i++)
+    {
+        BK4802WriteReg(commonConfig[i].addr, commonConfig[i].value);
+    }
+}
+
 void BK4802Tx(float freq)
 {
     BK4802Reg freqRegs[3];
@@ -440,56 +387,33 @@ void BK4802Tx(float freq)
     txValue = (uint32_t)(adjFreq * nDiv * TWO24 / CRYSTAL);
     freqRegs[0].value = (uint16_t)((txValue >> 16) & 0xFFFF);
     freqRegs[1].value = (uint16_t)(txValue & 0xFFFF);
-    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_8, GPIO_PIN_SET); // TX
+
     isTx = true;
-    HAL_Delay(30); // 等待模块切换到发射状态
+
+    // 等待模块切换到发射状态
+    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_8, GPIO_PIN_SET); // TX
+    HAL_Delay(30);
 
     // step1:设置寄存器
     for (int i = 0; i < BK4802TxRegNum; i++)
     {
         BK4802WriteReg(txConfig[i].addr, txConfig[i].value);
     }
-
+    BK4802Default();
     // step2: 设置动态寄存器
     for (int i = 0; i < sizeof(dynamicConfig) / sizeof(dynamicConfig[0]); i++)
     {
         BK4802WriteReg(dynamicConfig[i].addr, dynamicConfig[i].value);
-        log_d("Dy Config - Addr: %d, Value: %04x", dynamicConfig[i].addr, dynamicConfig[i].value);
     }
 
     // step2:设置频率,从高位到低位
     BK4802WriteReg(freqRegs[2].addr, freqRegs[2].value);
     BK4802WriteReg(freqRegs[0].addr, freqRegs[0].value);
     BK4802WriteReg(freqRegs[1].addr, freqRegs[1].value);
-    
+
     double actualMHz = ((double)txValue * (double)CRYSTAL) / ((double)nDiv * (double)TWO24);
     log_i("TX req:%.4f MHz off:%.6f MHz adj:%.4f MHz actual:%.6f MHz nDiv:%.1f r2:%04x r0:%04x r1:%04x",
-        freq, g_freqOffsetMHz, adjFreq, actualMHz, nDiv, freqRegs[2].value, freqRegs[0].value, freqRegs[1].value);
-}
-
-void BK4802SetVolLevel(uint8_t level)
-{
-    uint8_t vol;
-
-    uint16_t reg14;
-    reg14 = BK4802GetDynamicCfg(14);
-
-    if (level > 31)
-    {
-        level = 31;
-    }
-
-    vol = level;
-    reg14 &= ~(0x1F << 9); // 清除原有音量值
-    reg14 |= (vol << 9);   // 设置新的音量值
-
-    BK4802WriteReg(14, reg14);
-    BK4802SetDynamicCfg(14, reg14);
-}
-
-uint8_t BK4802GetVolLevel(void)
-{
-    return 0; // not implemented
+          freq, g_freqOffsetMHz, adjFreq, actualMHz, nDiv, freqRegs[2].value, freqRegs[0].value, freqRegs[1].value);
 }
 
 void BK4802Rx(float freq)
@@ -503,7 +427,6 @@ void BK4802Rx(float freq)
     float adjFreq = freq + g_freqOffsetMHz; // 应用偏移后的目标射频频率
 
     g_lastUserFreqMHz = freq; // 记录原始用户频率
-
     if (nDivCacl(adjFreq, &nDiv, &freqRegs[2].value) == false)
     {
         log_w("freq(含偏移)超出范围: req=%.6f MHz, offset=%.6f MHz, adj=%.6f MHz", freq, g_freqOffsetMHz, adjFreq);
@@ -511,26 +434,22 @@ void BK4802Rx(float freq)
     }
     // 接收路径：本振 = 期望RF - IF，因此加偏移后本振应 = (adjFreq - IF)
     rx = (uint32_t)(((adjFreq - IF * 1.000f) * nDiv * TWO24) / CRYSTAL);
-
     freqRegs[0].value = (uint16_t)((rx >> 16) & 0xFFFF);
     freqRegs[1].value = (uint16_t)(rx & 0xFFFF);
-
-    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_8, GPIO_PIN_RESET); // TX
     isTx = false;
-    HAL_Delay(30); // 等待模块切换到发射状态
+    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_8, GPIO_PIN_RESET); // 迅速速切换到RX
+    HAL_Delay(30);
 
     // step1:设置寄存器
     for (int i = 0; i < BK4802RxRegNum; i++)
     {
         BK4802WriteReg(rxConfig[i].addr, rxConfig[i].value);
-        log_d("RX Config - Addr: %d, Value: %04x", rxConfig[i].addr, rxConfig[i].value);
     }
-
+    BK4802Default();
     // step2: 设置动态寄存器
     for (int i = 0; i < sizeof(dynamicConfig) / sizeof(dynamicConfig[0]); i++)
     {
         BK4802WriteReg(dynamicConfig[i].addr, dynamicConfig[i].value);
-        log_d("Dy Config - Addr: %d, Value: %04x", dynamicConfig[i].addr, dynamicConfig[i].value);
     }
 
     // step3:设置频率,从高位到低位
@@ -540,7 +459,7 @@ void BK4802Rx(float freq)
     // 计算由寄存器量化后的实际本振频率（接收路径为本振=RF-IF）
     double actualRxMHz = ((double)rx * (double)CRYSTAL) / ((double)nDiv * (double)TWO24);
     log_i("RX req:%.4f MHz off:%.6f MHz adj:%.4f MHz actualLO:%.6f MHz nDiv:%.1f r2:%04x r0:%04x r1:%04x",
-        freq, g_freqOffsetMHz, adjFreq, actualRxMHz, nDiv, freqRegs[2].value, freqRegs[0].value, freqRegs[1].value);
+          freq, g_freqOffsetMHz, adjFreq, actualRxMHz, nDiv, freqRegs[2].value, freqRegs[0].value, freqRegs[1].value);
 }
 
 void BK4802Init(void)
@@ -629,25 +548,37 @@ xBool BK4802IsError(void)
 }
 
 // RSSI滤波相关变量
-static float filteredRssi = 0.0f;    // 滤波后的RSSI值
-static const float alpha = 0.2f;     // 滤波系数，值越小滤波越强
-static xBool lastRxState = xFalse;   // 上一次的接收状态
-static const uint8_t hysteresis = 3; // 滞后值，防止在阈值附近抖动
+static float filteredRssi = 0.0f;             // 滤波后的RSSI值
+static const float rxNotDetectedAlpha = 0.01; // 滤波系数,没有收到任何信号时，值越小，避免环境突变噪声
+static const float rxDetectedAlpha = 0.6f;    // 检测到有效信号后,值大，停止响应越快
+static xBool lastRxState = xFalse;            // 上一次的接收状态
+static const uint8_t hysteresis = 3;          // 滞后值，防止在阈值附近抖动
+
 xBool BK4802IsRx(void)
 {
     uint8_t rssi;
     uint8_t snr;
     rssi = BK4802RSSIRead();
     snr = BK4802SNRRead();
-    // 应用指数加权移动平均滤波
-    filteredRssi = alpha * rssi + (1.0f - alpha) * filteredRssi;
+    // 使用滞后比较来决定状态切换
+    if (!lastRxState)
+    {
+        filteredRssi = rxNotDetectedAlpha * rssi + (1.0f - rxNotDetectedAlpha) * filteredRssi;
+        // 当前不是接收状态，检查是否进入接收
+        if ((filteredRssi > softRSSIThre + hysteresis) && (snr >= BK4802_SNR_BAD_THRE) && (isTx == xFalse))
+        {
+            lastRxState = xTrue;
+        }
+    }
+    else
+    {
+        filteredRssi = rxDetectedAlpha * rssi + (1.0f - rxDetectedAlpha) * filteredRssi;
+        if (filteredRssi < softRSSIThre - hysteresis || (snr < BK4802_SNR_BAD_THRE))
+        {
+            lastRxState = xFalse;
+        }
+    }
 
-    // 使用滞后比较来稳定状态切换
-    uint8_t threshold = lastRxState ? (softRSSIThre - hysteresis) : softRSSIThre;
-
-    // 更新状态
-    lastRxState = ((uint8_t)filteredRssi > threshold) && (snr >= BK4802_SNR_BAD_THRE) &&
-                  (isTx == xFalse);
     return lastRxState;
 }
 
@@ -751,23 +682,12 @@ void BK4802SetPower(uint8_t level)
     BK4802SetDynamicCfg(8, readVal);
 }
 
-/* ================= 频率偏移校准接口 =================
- * 设计目的：
- *   廉价晶振/模块存在系统频偏，允许人工或上层协议写入一个频率偏移，
- *   统一作用于发射与接收本振计算。
- * 单位与符号：
- *   Set 函数以 Hz/PPM 设定；内部统一保存为 MHz。
- *   正值 => 实际发射 / 接收 频率升高。
- */
-
-// 直接以 Hz 设定绝对偏移
 void BK4802SetFreqOffsetHz(float offsetHz)
 {
     g_freqOffsetMHz = offsetHz / 1e6f;
     log_i("Set Freq Offset: %.2f Hz (内部=%.6f MHz)", offsetHz, g_freqOffsetMHz);
 }
 
-// 以 PPM 设定，相对于最近一次用户请求频率（未含偏移）
 void BK4802SetFreqOffsetPPM(float ppm)
 {
     // ppm = 1e-6，相对频率误差
@@ -786,7 +706,6 @@ float BK4802GetFreqOffsetMHz(void)
     return g_freqOffsetMHz;
 }
 
-// 可选：对输入频率进行步进量化（例如 12.5 kHz / 5 kHz 等）。传入步进(Hz)
 float BK4802QuantizeFreq(float freqMHz, float stepHz)
 {
     if (stepHz <= 0.0f)
@@ -798,7 +717,6 @@ float BK4802QuantizeFreq(float freqMHz, float stepHz)
     return q;
 }
 
-// 便捷刷新：带量化 + 偏移。若需要量化再调用本函数
 void BK4802FlushWithStep(float reqFreqMHz, float stepHz)
 {
     float qFreq = BK4802QuantizeFreq(reqFreqMHz, stepHz);

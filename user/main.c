@@ -22,7 +22,7 @@ SHARECom COM =
         .rCTCSS = 0,
         .tCTCSS = 0,
         .rxVol = 5,
-        .txVol = 24,
+        .txVol = 27,
         .sql = 3,
         .txFreq = 145.100,
         .rxFreq = 145.100,
@@ -142,9 +142,11 @@ int main(void)
   WDT_Config wdtCfg;
   wdtCfg.prescaler = IWDG_PRESCALER_64;                // 分频 64
   wdtCfg.reload = WDT_CalcReload(LSI_VALUE, 2000, 64); // 约 2s 超时
-  if (WDT_Init(&wdtCfg) != HAL_OK)
+  HAL_StatusTypeDef wdtStatus =
+      WDT_Init(&wdtCfg);
+  if (wdtStatus != HAL_OK)
   {
-    log_w("WDT init failed");
+    log_w("WDT init failed %d", wdtStatus);
   }
   else
   {

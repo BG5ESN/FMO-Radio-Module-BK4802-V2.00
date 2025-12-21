@@ -225,7 +225,6 @@ void radioTask(void)
         {
             // log_d("PTT OFF:%f", rxFreq);
             antennaPathCtrl(ANTENNA_PATH_ATTENUATOR); // 打开衰减器
-            HAL_Delay(100);                           // 等待衰减器稳定
             BK4802Rx(rxFreq);
             speakerPlay(xFalse);
             LED_BLINK_COUNT(200, 200, getJumpHex() + 1, 3000);
