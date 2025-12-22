@@ -549,7 +549,7 @@ xBool BK4802IsError(void)
 
 // RSSI滤波相关变量
 static float filteredRssi = 0.0f;             // 滤波后的RSSI值
-static const float rxNotDetectedAlpha = 0.01; // 滤波系数,没有收到任何信号时，值越小，避免环境突变噪声
+static const float rxNotDetectedAlpha = 0.2; // 滤波系数,没有收到任何信号时，值越小，避免环境突变噪声
 static const float rxDetectedAlpha = 0.6f;    // 检测到有效信号后,值大，停止响应越快
 static xBool lastRxState = xFalse;            // 上一次的接收状态
 static const uint8_t hysteresis = 3;          // 滞后值，防止在阈值附近抖动
