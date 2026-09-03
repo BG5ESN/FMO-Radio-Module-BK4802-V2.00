@@ -1,0 +1,34 @@
+{
+    "folders": [
+        {
+            "path": "."
+        }
+    ],
+    "settings": {},
+    "extensions": {},
+    "launch": {
+        "version": "0.2.0",
+        "configurations": [
+            
+            {
+                "type": "cortex-debug",
+                "name": "Debug: JLINK",
+                "request": "launch",
+                "toolchainPrefix": "arm-none-eabi",
+                "armToolchainPath": "C:\\Users\\lihao\\.eide\\tools\\gcc_arm\\bin",
+                "cwd": "d:\\FMO-Radio-Module-BK4802-V2.00\\eide",
+                "executable": ".\\build\\nfm-module-v1\\nfm-module.elf",
+                "runToEntryPoint": "main",
+                "liveWatch": {
+                    "enabled": true,
+                    "samplesPerSecond": 4
+                },
+                "svdFile": ".pack\\Puya\\PY32F0xx_DFP.1.1.7\\SVD\\py32f030xx.svd",
+                "servertype": "jlink",
+                "interface": "swd",
+                "device": "PY32F030x8",
+                "serverpath": "C:\\Users\\lihao\\.eide\\tools\\jlink\\JLinkGDBServerCL.exe"
+            }
+        ]
+    }
+}

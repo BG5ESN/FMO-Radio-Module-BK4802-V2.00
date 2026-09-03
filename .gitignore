@@ -1,0 +1,22 @@
+# For a project mostly in C, the following would be a good set of
+# exclude patterns (uncomment them if you want to use them):
+# Ignore .o .dbgconf .
+*.rar
+*.dbgconf
+*.o
+*.crf
+*.d
+*.lnp
+*.map
+*.axf
+*.hex
+*.sct
+*.dep
+*.lst
+*.fw
+PDT3.htm
+PDT3.build_log.htm
+.code-workspace
+*.uvguix.*
+Objects
+Listings
